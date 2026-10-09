@@ -21,7 +21,8 @@
 
   function build(counts) {
     const nT = Math.max(1, counts.teller || 0);
-    const nA = counts.advisor || 0, nL = counts.loan || 0, nB = Math.max(1, counts.backoffice || 0);
+    const nA = counts.advisor || 0, nL = counts.loan || 0, nC = counts.corporate || 0, nB = Math.max(1, counts.backoffice || 0);
+    const nD = Math.min(3, counts.digital || 0), nV = Math.min(2, counts.vip || 0), nS = Math.min(2, counts.safebox || 0);
     const L = { W, H, floors: {}, spots: {}, seats: {}, stand: {}, points: [], atms: [] };
 
     /* ================= 1F 營業大廳 ================= */
@@ -79,11 +80,21 @@
     d1.push(desk(230, 180, 48, 16, { c: '#67e8f9', label: '服務台' }));
     d1.push({ t: 'tv', x: 740, y: 140, w: 210, h: 30 });
     d1.push({ t: 'table', x: 225, y: 355, w: 70, h: 34, label: '填單台' });
-    d1.push(shelf(760, 300, 90, 14, 'DM 架'));
-    d1.push(machine(885, 305, '飲水', '#e0f2fe'));
-    d1.push(plant(190, 392)); d1.push(plant(720, 392)); d1.push(plant(970, 205, 8)); d1.push(plant(310, 392, 7));
+    // 數位服務區（信用卡／數位帳戶）
+    d1.push({ t: 'rug', x: 745, y: 196, w: 210, h: 118, c: '#ccfbf1', stroke: '#14b8a6', label: '數位服務區' });
+    for (let k = 0; k < nD; k++) {
+      const x = nD === 1 ? 850 : 790 + k * (120 / Math.max(1, nD - 1));
+      L.points.push({ kind: 'digital', idx: k, label: '數位' + (k + 1) + '號台', short: 'D' + (k + 1), floor: 1,
+        staffSpot: sp(1, x, 232, DOWN), custSpot: sp(1, x, 290, UP), courierSpot: sp(1, x + 22, 226, DOWN), signX: x, signY: 262 });
+      d1.push(desk(x - 26, 244, 52, 26, { c: '#5eead4', mon: 'down' }));
+      d1.push(chair(x, 232, DOWN, '#115e59'));
+      d1.push(chair(x, 290, UP, '#94a3b8'));
+    }
+    d1.push(shelf(760, 330, 70, 12, 'DM 架'));
+    d1.push(machine(900, 335, '飲水', '#e0f2fe'));
+    d1.push(plant(190, 392)); d1.push(plant(720, 392)); d1.push(plant(972, 330, 8)); d1.push(plant(310, 392, 7));
     d1.push({ t: 'logo', x: 560, y: 160 });
-    d1.push(text(850, 342, '理財・貸款 請上 2F ↗', { fs: 9, color: '#475569', bg: '#fff' }));
+    d1.push(text(845, 372, '理財・貸款・企金 2F ↗　保管箱 B1 ↘', { fs: 9, color: '#475569', bg: '#fff' }));
     L.seats[1] = [];
     for (let r = 0; r < 5; r++) for (let c = 0; c < 11; c++) {
       const x = 330 + c * 36, y = 208 + r * 36;
@@ -108,24 +119,36 @@
     };
     const d2 = f2.deco;
     d2.push({ t: 'band', x: 20, y: 70, w: 960, h: 35, c: '#e7e5e4' });
-    const addDesk = (kind, k, x, label) => {
+    const DESK_C = { advisor: '#fcd34d', loan: '#fdba74', corporate: '#cbd5e1' };
+    const addDesk = (kind, k, x, label, hw) => {
       L.points.push({
         kind, idx: k, label, short: label, floor: 2,
         staffSpot: sp(2, x, 44, DOWN), custSpot: sp(2, x, 124, UP), courierSpot: sp(2, x + 24, 28, DOWN), signX: x, signY: 86,
       });
-      d2.push(desk(x - 34, 72, 68, 30, { c: kind === 'advisor' ? '#fcd34d' : '#fdba74', mon: 'down' }));
+      d2.push(desk(x - hw, 72, hw * 2, 30, { c: DESK_C[kind], mon: 'down' }));
       d2.push(chair(x, 44, DOWN, '#44403c'));
       d2.push(chair(x, 124, UP, '#a8a29e'));
-      d2.push(chair(x + 22, 124, UP, '#d6d3d1'));
+      if (hw > 26) d2.push(chair(x + 22, 124, UP, '#d6d3d1'));
     };
-    const aw = 420 / Math.max(1, nA), lw = 400 / Math.max(1, nL);
-    for (let k = 0; k < nA; k++) addDesk('advisor', k, 60 + (k + 0.5) * aw, '理財' + (k + 1) + '號桌');
-    for (let k = 0; k < nL; k++) addDesk('loan', k, 560 + (k + 0.5) * lw, '貸款' + (k + 1) + '號桌');
-    for (let k = 1; k < nA; k++) d2.push({ t: 'line', x1: 60 + k * aw, y1: 108, x2: 60 + k * aw, y2: 150, c: '#a8a29e', w: 3 });
-    for (let k = 1; k < nL; k++) d2.push({ t: 'line', x1: 560 + k * lw, y1: 108, x2: 560 + k * lw, y2: 150, c: '#a8a29e', w: 3 });
+    // 專員桌依序排列：理財 → 貸款 → 企金，避開中央通道（500～530）
+    const desks2 = [];
+    for (let k = 0; k < nA; k++) desks2.push(['advisor', k, '理財' + (k + 1) + '號桌']);
+    for (let k = 0; k < nL; k++) desks2.push(['loan', k, '貸款' + (k + 1) + '號桌']);
+    for (let k = 0; k < nC; k++) desks2.push(['corporate', k, '企金' + (k + 1) + '號桌']);
+    const slot = 890 / Math.max(1, desks2.length), hw = Math.max(20, Math.min(34, slot / 2 - 6));
+    const groups = {};
+    desks2.forEach(([kind, k, label], i) => {
+      const u = (i + 0.5) * slot;
+      let x = u < 460 ? 40 + u : 530 + (u - 460);
+      if (x + hw > 500 && x < 515) x = 500 - hw;
+      if (x - hw < 530 && x >= 515) x = 530 + hw;
+      addDesk(kind, k, x, label, hw);
+      (groups[kind] = groups[kind] || []).push(x);
+      if (i > 0 && desks2[i - 1][0] === kind) d2.push({ t: 'line', x1: x - slot / 2, y1: 108, x2: x - slot / 2, y2: 150, c: '#a8a29e', w: 3 });
+    });
+    const GROUP_NAME = { advisor: ['理財諮詢區', '#92400e'], loan: ['貸款服務區', '#9a3412'], corporate: ['企業金融區', '#334155'] };
+    for (const [kind, xs] of Object.entries(groups)) d2.push(text((Math.min(...xs) + Math.max(...xs)) / 2, 168, GROUP_NAME[kind][0], { fs: 11, color: GROUP_NAME[kind][1] }));
     d2.push(shelf(96, 18, 34, 10, '檔案')); d2.push(shelf(920, 18, 50, 10, '檔案'));
-    d2.push(text(270, 168, '理財諮詢區', { fs: 11, color: '#92400e' }));
-    d2.push(text(760, 168, '貸款服務區', { fs: 11, color: '#9a3412' }));
     L.seats[2] = [];
     for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) {
       const x = 120 + c * 38, y = 250 + r * 36;
@@ -137,7 +160,15 @@
     d2.push({ t: 'rug', x: 560, y: 215, w: 300, h: 140, c: '#fed7aa', label: '貴賓理財室' });
     d2.push({ t: 'sofa', x: 585, y: 250, w: 18, h: 70, c: '#9a3412' });
     d2.push({ t: 'sofa', x: 815, y: 250, w: 18, h: 70, c: '#9a3412' });
-    d2.push({ t: 'table', x: 655, y: 268, w: 110, h: 34 });
+    // 貴賓理專座位（面對貴賓）
+    for (let k = 0; k < nV; k++) {
+      const x = nV === 1 ? 710 : 670 + k * 80;
+      L.points.push({ kind: 'vip', idx: k, label: '貴賓室' + (k + 1), short: 'V' + (k + 1), floor: 2,
+        staffSpot: sp(2, x, 252, DOWN), custSpot: sp(2, x, 318, UP), courierSpot: sp(2, x + 22, 246, DOWN), signX: x, signY: 285 });
+      d2.push(chair(x, 252, DOWN, '#7f1d1d'));
+      d2.push(chair(x, 318, UP, '#b45309'));
+    }
+    d2.push({ t: 'table', x: 640, y: 268, w: 140, h: 34 });
     d2.push(plant(575, 230, 8)); d2.push(plant(845, 340, 8));
     d2.push({ t: 'tv', x: 880, y: 196, w: 70, h: 38 });
     d2.push(shelf(40, 375, 60, 14, 'DM 架'));
@@ -178,6 +209,8 @@
     d3.push(chair(282, 100, RIGHT, '#1e1b4b'));
     d3.push(machine(950, 40, '影印', '#e2e8f0'));
     d3.push(shelf(940, 70, 34, 60, '卷宗'));
+    d3.push(desk(838, 104, 46, 20, { c: '#ddd6fe', mon: 'down', label: '法遵' }));
+    d3.push(chair(861, 94, DOWN, '#4c1d95'));
     d3.push({ t: 'tray', x: 600, y: 140, w: 60, h: 24 });
     d3.push({ t: 'tray', x: 880, y: 140, w: 70, h: 24 });
     d3.push({ t: 'table', x: 90, y: 300, w: 160, h: 50 });
@@ -197,6 +230,7 @@
     L.spots.boInbox = sp(3, 630, 128, DOWN);
     L.spots.boOutbox = sp(3, 915, 128, DOWN);
     L.spots.mailDesk = sp(3, 455, 350, UP);
+    L.spots.auditDesk = sp(3, 861, 94, DOWN);
     L.spots.meetHead = sp(3, 282, 100, RIGHT);
     L.meetSeats = [];
     for (let k = 0; k < 7; k++) L.meetSeats.push(sp(3, 315 + k * 30, 60, DOWN));
@@ -227,16 +261,22 @@
         vault:     { x: 20,  y: 20,  w: 420, h: 160, name: '金庫', mat: 'steel' },
         archive:   { x: 450, y: 20,  w: 270, h: 160, name: '檔案室', mat: 'vinyl' },
         monitor:   { x: 730, y: 20,  w: 250, h: 160, name: '監控機房', mat: 'raised' },
-        storage:   { x: 20,  y: 240, w: 560, h: 165, name: '物料／清潔用品室', mat: 'concrete' },
+        sbroom:    { x: 20,  y: 240, w: 290, h: 165, name: '保管箱室', mat: 'carpetPurple' },
+        storage:   { x: 320, y: 240, w: 260, h: 165, name: '物料／清潔用品室', mat: 'concrete' },
         stairhall: { x: 590, y: 240, w: 390, h: 165, name: '梯廳', mat: 'concrete' },
       },
       portals: [['corridor', 'vault', 230, 180, 'vault'], ['corridor', 'archive', 585, 180, 'door'], ['corridor', 'monitor', 855, 180, 'door'],
-                ['corridor', 'storage', 300, 240, 'door'], ['corridor', 'stairhall', 785, 240, 'open']],
+                ['corridor', 'sbroom', 160, 240, 'door'], ['corridor', 'storage', 450, 240, 'door'], ['corridor', 'stairhall', 785, 240, 'open']],
       glass: [],
       deco: [],
     };
     const db = fb.deco;
-    db.push({ t: 'lockers', x: 72, y: 24, w: 136, h: 22, label: '保管箱' });
+    const d_sb = (x) => {
+      db.push(desk(x - 30, 288, 60, 26, { c: '#e9d5ff', mon: 'down' }));
+      db.push(chair(x, 276, DOWN, '#581c87'));
+      db.push(chair(x, 334, UP, '#a8a29e'));
+    };
+    db.push(shelf(72, 24, 136, 22, '貴金屬／票券'));
     db.push(shelf(214, 24, 220, 22, '現金箱保管架'));
     db.push(desk(340, 92, 84, 38, { c: '#fde68a', label: '點鈔機' }));
     db.push({ t: 'cart', x: 30, y: 140 }); db.push({ t: 'cart', x: 60, y: 140 });
@@ -245,10 +285,19 @@
     db.push(desk(815, 72, 80, 18, { c: '#94a3b8' }));
     db.push(chair(855, 100, UP, '#1e293b'));
     db.push({ t: 'rack', x: 742, y: 110, w: 26, h: 56 }); db.push({ t: 'rack', x: 942, y: 110, w: 26, h: 56 });
-    db.push(shelf(30, 266, 120, 18, '清潔用品'));
-    db.push(shelf(180, 252, 380, 18, '表單／耗材'));
-    db.push(shelf(180, 300, 380, 18, '文具／印刷品'));
-    db.push({ t: 'cart', x: 40, y: 370 });
+    db.push({ t: 'lockers', x: 30, y: 380, w: 270, h: 20, label: '' });
+    db.push({ t: 'lockers', x: 286, y: 262, w: 18, h: 110 });
+    db.push(text(150, 372, '客戶保管箱', { fs: 8, color: '#6b21a8' }));
+    for (let k = 0; k < nS; k++) {
+      const x = nS === 1 ? 150 : 100 + k * 110;
+      L.points.push({ kind: 'safebox', idx: k, label: '保管箱' + (k + 1) + '號台', short: 'H' + (k + 1), floor: -1,
+        staffSpot: sp(-1, x, 276, DOWN), custSpot: sp(-1, x, 334, UP), courierSpot: sp(-1, x + 24, 270, DOWN), signX: x, signY: 304 });
+      d_sb(x);
+    }
+    db.push(shelf(400, 266, 170, 18, '清潔用品'));
+    db.push(shelf(400, 300, 170, 18, '表單／耗材'));
+    db.push(shelf(400, 334, 170, 18, '文具／印刷品'));
+    db.push({ t: 'cart', x: 350, y: 380 });
     db.push({ t: 'room', x: 610, y: 260, w: 120, h: 70, label: '機電室' });
     L.spots.vaultDoor = sp(-1, 230, 160, UP);
     L.spots.supVault = sp(-1, 300, 80, UP);
@@ -257,7 +306,7 @@
     L.spots.escortB1 = sp(-1, 260, 210, UP);
     L.spots.archive = sp(-1, 585, 115, UP);
     L.spots.monitor = sp(-1, 855, 100, UP);
-    L.spots.closet = sp(-1, 100, 350, UP);
+    L.spots.closet = sp(-1, 360, 340, RIGHT);
     L.vaultSpots = [];
     for (let k = 0; k < 16; k++) L.vaultSpots.push(sp(-1, 50 + (k % 8) * 36, 75 + Math.floor(k / 8) * 40, UP));
     db.push({ t: 'stairs', x: 915, y: 350, w: 62, h: 52 });

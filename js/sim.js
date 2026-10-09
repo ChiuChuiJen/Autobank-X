@@ -155,15 +155,17 @@
       });
       if (a.role !== 'security' && a.role !== 'cleaner') a.meetIdx = attendee++;
       const shift = (s, n) => ({ floor: s.floor, x: s.x - n * 26, y: s.y });
-      if (['teller', 'advisor', 'loan'].includes(a.role)) {
-        const kind = a.role === 'teller' ? 'counter' : a.role;
-        const p = L.points.find((q) => q.kind === kind && q.idx === k);
+      const sr = ABX.SERVICE_ROLES[a.role];
+      const p = sr && L.points.find((q) => q.kind === sr.kind && q.idx === k);
+      if (p) {
         p.staff = a; p.services = String(cfg.services || '').toUpperCase().replace(/[^A-Z]/g, '').split('');
-        if (!p.services.length) p.services = a.role === 'teller' ? ['A'] : a.role === 'advisor' ? ['D'] : ['E'];
+        if (!p.services.length) p.services = [sr.def];
         p.open = false; p.current = null;
         a.point = p; a.station = p.staffSpot; a.vaultIdx = k % L.vaultSpots.length;
         S.points.push(p);
-      } else if (a.role === 'manager') a.station = shift(L.spots.mgrDesk, k);
+      } else if (sr) { a.station = shift(L.spots.corr3, k); a.noDesk = true; }   // 超過座位數：留在 3F 支援
+      else if (a.role === 'audit') a.station = shift(L.spots.auditDesk, k);
+      else if (a.role === 'manager') a.station = shift(L.spots.mgrDesk, k);
       else if (a.role === 'supervisor') a.station = shift(L.spots.supDesk, k);
       else if (a.role === 'guide') a.station = shift(L.spots.guide, -k);
       else if (a.role === 'backoffice') a.station = L.boDesks[k % L.boDesks.length];
@@ -215,7 +217,7 @@
     const lunchStart = parseHM(sr.lunchStart), lunchEnd = parseHM(sr.lunchEnd), lunchLen = Math.max(10, +sr.lunchMinutes) * 60;
     const hasLunch = h.open && h.last >= lunchEnd && lunchEnd > lunchStart;
     const slots = Math.max(1, Math.floor((lunchEnd - lunchStart) / lunchLen));
-    const off = { teller: 0, advisor: 1, loan: 2, backoffice: 0, supervisor: 0, manager: 2, guide: 1, courier: 1, cleaner: 3 };
+    const off = { teller: 0, advisor: 1, loan: 2, backoffice: 0, supervisor: 0, manager: 2, guide: 1, courier: 1, cleaner: 3, digital: 2, safebox: 1, corporate: 3, vip: 0, audit: 2 };
     for (const a of S.staff) {
       if (a.state !== 'home') { // 跨日仍未離開者強制下班
         a.floor = null; a.state = 'home'; a.tasks = []; a.cur = null; a.path = []; a.transfer = null; a.offsite = false; a.label = '已下班';
@@ -292,10 +294,16 @@
       }
       a.didMeeting = true;
     }
-    (DECIDE[a.role] || idle)(a, t, h);
+    (a.noDesk ? supportDecide : DECIDE[a.role] || idle)(a, t, h);
   }
 
   function idle(a) { later(a, T.wait(30, '待命')); }
+  function supportDecide(a, t, h) {
+    if (lunchDue(a)) { goLunch(a); return; }
+    if (t >= h.last && !a.closingDone) { a.closingDone = true; return; }
+    if (!atSpot(a, a.station)) { later(a, T.go(a.station, '前往支援')); return; }
+    later(a, T.wait(30, '支援後勤作業'));
+  }
 
   function arrive(a) {
     const D = S.D;
@@ -442,7 +450,7 @@
         T.do(() => { a.closingDone = true; log('盤點', `${p.label}（${a.name}）盤點軋帳完成`); }));
     } else {
       later(a,
-        T.wait(R(25, 45) * 60, '整理客戶資料・電話追蹤'),
+        T.wait(R(25, 45) * 60, CLOSE_LABEL[a.role] || '整理客戶資料・電話追蹤'),
         T.do(() => { createDoc({ name: '業務日報（' + p.label + '）', point: p, from: p.label, review: false }); }),
         T.wait(5 * 60, '整理桌面'),
         T.do(() => { a.closingDone = true; log('盤點', `${p.label}（${a.name}）完成日終作業`); }));
@@ -728,6 +736,33 @@
   }
 
   /* 清潔 */
+  const CLOSE_LABEL = {
+    digital: '整理申請書・系統建檔', safebox: '保管箱室盤點・鑰匙封存', corporate: '撰寫授信報告・電話追蹤', vip: '整理貴賓資產報告',
+  };
+
+  /* 法遵稽核：定時抽查櫃台與文件，日終撰寫法遵日報 */
+  function auditDecide(a, t, h) {
+    if (lunchDue(a)) { goLunch(a); return; }
+    if (t >= h.last && !a.closing && allServiceClosed()) {
+      a.closing = true;
+      later(a, T.go(a.station, '回到法遵座位'), T.wait(25 * 60, '撰寫法遵日報・洗錢防制檢核'),
+        T.do(() => { a.closingDone = true; log('盤點', `法遵（${a.name}）完成日終法遵檢核`); }));
+      return;
+    }
+    if (t >= a.nextPatrol && t >= h.start && t < h.last && S.points.length) {
+      a.nextPatrol = t + R(70, 110) * 60;
+      const p = pick(S.points);
+      const s = p.staffSpot;
+      later(a, T.go({ floor: s.floor, x: s.x - 20, y: s.y - (s.floor === 1 ? 26 : 10), face: Math.PI / 2 }, '前往抽查' + p.label),
+        T.wait(R(120, 240), '抽查傳票・核對身分證明'),
+        T.do(() => log('員工', `法遵（${a.name}）抽查 ${p.label} 交易憑證`)),
+        T.go(a.station, '回到法遵座位'));
+      return;
+    }
+    if (!atSpot(a, a.station)) { later(a, T.go(a.station, '回到法遵座位')); return; }
+    later(a, T.wait(30, t < h.start ? '檢視法規更新' : pick(['審閱大額交易', '洗錢防制檢核', '個資稽核', '整理稽核底稿'])));
+  }
+
   function cleanerDecide(a, t, h) {
     if (lunchDue(a)) { goLunch(a); return; }
     if (t >= h.last + 3600 && customersInside() === 0) {
@@ -745,6 +780,7 @@
 
   const DECIDE = {
     teller: serviceDecide, advisor: serviceDecide, loan: serviceDecide,
+    digital: serviceDecide, safebox: serviceDecide, corporate: serviceDecide, vip: serviceDecide, audit: auditDecide,
     supervisor: supervisorDecide, manager: managerDecide, guide: guideDecide,
     backoffice: backofficeDecide, courier: courierDecide, security: securityDecide, cleaner: cleanerDecide,
   };

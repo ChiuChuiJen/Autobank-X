@@ -1,7 +1,7 @@
 /* Autobank-X — 共用設定（預設值、讀寫 localStorage、時間工具） */
 (function () {
   const ABX = (window.ABX = window.ABX || {});
-  const KEY = 'autobankx.settings.v1';
+  const KEY = 'autobankx.settings.v2';
 
   const WD = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -16,6 +16,22 @@
     courier:    { label: '收發送件', color: '#0f766e' },
     security:   { label: '保全',     color: '#334155' },
     cleaner:    { label: '清潔',     color: '#78716c' },
+    digital:    { label: '數位服務專員', color: '#0d9488' },
+    safebox:    { label: '保管箱專員',   color: '#a16207' },
+    corporate:  { label: '企金專員',     color: '#475569' },
+    vip:        { label: '貴賓理專',     color: '#b91c1c' },
+    audit:      { label: '法遵稽核',     color: '#6d28d9' },
+  };
+
+  // 有服務窗口的職務：窗口類型、所在樓層說明、預設服務代碼
+  const SERVICE_ROLES = {
+    teller:    { kind: 'counter',   def: 'A', where: '1F 櫃台' },
+    digital:   { kind: 'digital',   def: 'G', where: '1F 數位服務區' },
+    advisor:   { kind: 'advisor',   def: 'D', where: '2F 理財桌' },
+    loan:      { kind: 'loan',      def: 'E', where: '2F 貸款桌' },
+    corporate: { kind: 'corporate', def: 'I', where: '2F 企金桌' },
+    vip:       { kind: 'vip',       def: 'V', where: '2F 貴賓理財室' },
+    safebox:   { kind: 'safebox',   def: 'H', where: 'B1 保管箱室' },
   };
 
   const DEFAULTS = {
@@ -42,11 +58,16 @@
       lunchMinutes: 30,
     },
     services: [
-      { code: 'A', name: '存款／提款',     floor: 1, avgMin: 5,  ratio: 46, docProb: 5,   docName: '大額交易申報書', approvalProb: 6,  mgrProb: 50,  color: '#3b82f6' },
-      { code: 'B', name: '匯款／外匯',     floor: 1, avgMin: 8,  ratio: 22, docProb: 25,  docName: '匯款申請書',     approvalProb: 15, mgrProb: 30,  color: '#10b981' },
-      { code: 'C', name: '開戶／綜合業務', floor: 1, avgMin: 15, ratio: 16, docProb: 90,  docName: '開戶申請書',     approvalProb: 30, mgrProb: 40,  color: '#f59e0b' },
-      { code: 'D', name: '理財諮詢',       floor: 2, avgMin: 25, ratio: 9,  docProb: 50,  docName: '理財商品申購書', approvalProb: 0,  mgrProb: 30,  color: '#a855f7' },
-      { code: 'E', name: '貸款申辦',       floor: 2, avgMin: 30, ratio: 7,  docProb: 100, docName: '貸款申請案件',   approvalProb: 0,  mgrProb: 100, color: '#ef4444' },
+      { code: 'A', name: '存款／提款',     floor: 1, avgMin: 5,  ratio: 34, docProb: 5,   docName: '大額交易申報書', approvalProb: 6,  mgrProb: 50,  color: '#3b82f6' },
+      { code: 'B', name: '匯款／轉帳',     floor: 1, avgMin: 8,  ratio: 15, docProb: 25,  docName: '匯款申請書',     approvalProb: 15, mgrProb: 30,  color: '#10b981' },
+      { code: 'C', name: '開戶／綜合業務', floor: 1, avgMin: 15, ratio: 12, docProb: 90,  docName: '開戶申請書',     approvalProb: 30, mgrProb: 40,  color: '#f59e0b' },
+      { code: 'F', name: '外幣兌換',       floor: 1, avgMin: 6,  ratio: 8,  docProb: 30,  docName: '外匯水單',       approvalProb: 10, mgrProb: 20,  color: '#06b6d4' },
+      { code: 'G', name: '信用卡／數位服務', floor: 1, avgMin: 10, ratio: 7, docProb: 60,  docName: '信用卡申請書',   approvalProb: 0,  mgrProb: 20,  color: '#ec4899' },
+      { code: 'H', name: '保管箱',         floor: 1, avgMin: 15, ratio: 3,  docProb: 15,  docName: '保管箱開箱登記', approvalProb: 0,  mgrProb: 0,   color: '#a16207' },
+      { code: 'D', name: '理財諮詢',       floor: 2, avgMin: 25, ratio: 8,  docProb: 50,  docName: '理財商品申購書', approvalProb: 0,  mgrProb: 30,  color: '#a855f7' },
+      { code: 'E', name: '貸款申辦',       floor: 2, avgMin: 30, ratio: 6,  docProb: 100, docName: '貸款申請案件',   approvalProb: 0,  mgrProb: 100, color: '#ef4444' },
+      { code: 'I', name: '企業金融',       floor: 2, avgMin: 35, ratio: 4,  docProb: 100, docName: '企業授信案件',   approvalProb: 0,  mgrProb: 100, color: '#64748b' },
+      { code: 'V', name: '貴賓理財',       floor: 2, avgMin: 30, ratio: 3,  docProb: 60,  docName: '信託契約',       approvalProb: 0,  mgrProb: 60,  color: '#b91c1c' },
     ],
     customers: {
       multiplier: 1,
@@ -83,13 +104,19 @@
       { name: '劉怡君', role: 'teller', services: 'BA' },
       { name: '黃俊傑', role: 'teller', services: 'CB' },
       { name: '吳淑芬', role: 'teller', services: 'CA' },
+      { name: '江佩蓉', role: 'teller', services: 'FB' },
+      { name: '方子傑', role: 'digital', services: 'G' },
       { name: '蔡宗翰', role: 'guide' },
       { name: '許雅婷', role: 'advisor', services: 'D' },
       { name: '鄭志偉', role: 'advisor', services: 'D' },
       { name: '謝明哲', role: 'loan', services: 'E' },
       { name: '郭佩珊', role: 'loan', services: 'E' },
+      { name: '游建國', role: 'corporate', services: 'IE' },
+      { name: '沈若晴', role: 'vip', services: 'VD' },
+      { name: '杜文雄', role: 'safebox', services: 'H' },
       { name: '洪嘉玲', role: 'backoffice' },
       { name: '曾建宏', role: 'backoffice' },
+      { name: '葉淑惠', role: 'audit' },
       { name: '周文彬', role: 'courier' },
       { name: '楊大同', role: 'security' },
       { name: '林秀英', role: 'cleaner' },
@@ -201,7 +228,7 @@
 
   Object.assign(ABX, {
     armConfirm, showExport,
-    SETTINGS_KEY: KEY, WD, ROLES, DEFAULTS, clone, merge,
+    SETTINGS_KEY: KEY, WD, ROLES, SERVICE_ROLES, DEFAULTS, clone, merge,
     loadSettings: load, saveSettings: save, resetSettings: resetSaved,
     parseHM, parseTimes, pad, fmtHM, fmtHMS, fmtDur, fmtMoney,
   });

@@ -31,6 +31,11 @@
     security:   { outfit: '#0f172a', trim: '#facc15', acc: 'cap' },
     cleaner:    { outfit: '#78716c', trim: '#bae6fd', acc: 'apron' },
     crew:       { outfit: '#14532d', trim: '#facc15', acc: 'helmet' },
+    digital:    { outfit: '#0f766e', trim: '#f8fafc', acc: 'tablet' },
+    safebox:    { outfit: '#713f12', trim: '#facc15', acc: 'keys' },
+    corporate:  { outfit: '#334155', trim: '#93c5fd', acc: 'tie' },
+    vip:        { outfit: '#450a0a', trim: '#facc15', acc: 'tie' },
+    audit:      { outfit: '#4c1d95', trim: '#e9d5ff', acc: 'lanyard' },
   };
 
   const LEVELS = {
@@ -50,17 +55,22 @@
     courier:    ['路線熟悉', '準時達人', '機車老手'],
     security:   ['退伍軍人', '警覺性高', '熱心指引'],
     cleaner:    ['一塵不染', '早到勤快', '愛聊天'],
+    digital:    ['App 教學達人', '信用卡推廣王', '3C 通'],
+    safebox:    ['口風很緊', '鑰匙管理嚴謹', '熟記每位常客'],
+    corporate:  ['財報分析', '中小企業輔導', '貿易融資'],
+    vip:        ['家族信託', '高資產配置', '國際稅務'],
+    audit:      ['洗錢防制', '鐵面無私', '法規熟稔'],
   };
 
   /* 客戶類型：比重、步行速度、耐心、業務偏好 */
   const PERSONAS = [
-    { key: 'office',  label: '上班族',       w: 28, speed: 1.1,  patience: 0.75, acc: 'briefcase', outfits: ['#1e293b', '#334155', '#475569', '#e2e8f0', '#1e3a8a'], pref: { B: 1.3, D: 1.2, E: 1.4 } },
-    { key: 'senior',  label: '長者',         w: 18, speed: 0.62, patience: 1.5,  acc: 'cane',      outfits: ['#a16207', '#57534e', '#7c2d12', '#4d7c0f', '#6b21a8'], grey: true, pref: { A: 1.5, D: 1.3, E: 0.4 } },
-    { key: 'student', label: '學生',         w: 12, speed: 1.15, patience: 0.9,  acc: 'backpack',  outfits: ['#2563eb', '#dc2626', '#16a34a', '#f8fafc', '#f472b6'], pref: { C: 1.8, A: 1.2, D: 0.3, E: 0.3 } },
-    { key: 'shop',    label: '商家店主',     w: 16, speed: 1.0,  patience: 0.85, acc: 'cashbag',   outfits: ['#b45309', '#065f46', '#be123c', '#0f766e'], pref: { A: 1.8, B: 1.4 } },
+    { key: 'office',  label: '上班族',       w: 28, speed: 1.1,  patience: 0.75, acc: 'briefcase', outfits: ['#1e293b', '#334155', '#475569', '#e2e8f0', '#1e3a8a'], pref: { B: 1.3, D: 1.2, E: 1.4, G: 1.5 } },
+    { key: 'senior',  label: '長者',         w: 18, speed: 0.62, patience: 1.5,  acc: 'cane',      outfits: ['#a16207', '#57534e', '#7c2d12', '#4d7c0f', '#6b21a8'], grey: true, pref: { A: 1.5, D: 1.3, E: 0.4, H: 2, G: 0.3 } },
+    { key: 'student', label: '學生',         w: 12, speed: 1.15, patience: 0.9,  acc: 'backpack',  outfits: ['#2563eb', '#dc2626', '#16a34a', '#f8fafc', '#f472b6'], pref: { C: 1.8, A: 1.2, D: 0.3, E: 0.3, G: 2, F: 1.3, I: 0, V: 0, H: 0.2 } },
+    { key: 'shop',    label: '商家店主',     w: 16, speed: 1.0,  patience: 0.85, acc: 'cashbag',   outfits: ['#b45309', '#065f46', '#be123c', '#0f766e'], pref: { A: 1.8, B: 1.4, I: 1.5, F: 0.5 } },
     { key: 'parent',  label: '帶小孩的家長', w: 9,  speed: 0.8,  patience: 0.9,  acc: 'stroller',  outfits: ['#db2777', '#7c3aed', '#0891b2', '#ea580c'], pref: { C: 1.3, E: 1.2 } },
-    { key: 'foreign', label: '外籍人士',     w: 7,  speed: 1.0,  patience: 1.1,  acc: 'none',      outfits: ['#0d9488', '#9333ea', '#ea580c', '#facc15'], pref: { B: 3.5, C: 1.2 } },
-    { key: 'boss',    label: '企業主',       w: 6,  speed: 1.0,  patience: 0.7,  acc: 'briefcase', outfits: ['#111827', '#1f2937'], pref: { E: 2.5, D: 2, B: 1.5 } },
+    { key: 'foreign', label: '外籍人士',     w: 7,  speed: 1.0,  patience: 1.1,  acc: 'none',      outfits: ['#0d9488', '#9333ea', '#ea580c', '#facc15'], pref: { B: 3.5, C: 1.2, F: 4 } },
+    { key: 'boss',    label: '企業主',       w: 6,  speed: 1.0,  patience: 0.7,  acc: 'briefcase', outfits: ['#111827', '#1f2937'], pref: { E: 2.5, D: 2, B: 1.5, I: 5, V: 5, H: 2 } },
   ];
 
   function staffLook(name, role) {
@@ -162,6 +172,13 @@
         break;
       case 'cane':
         ctx.strokeStyle = '#78350f'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(1, 9.5); ctx.lineTo(8, 12); ctx.stroke();
+        break;
+      case 'tablet':
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(3.5, 5.5, 6, 4.5); ctx.fillStyle = '#5eead4'; ctx.fillRect(4.3, 6.2, 4.4, 3);
+        break;
+      case 'keys':
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(1.5, 8.5, 2, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(3, 9.5); ctx.lineTo(6, 11); ctx.stroke();
         break;
       case 'helmet':
         ctx.fillStyle = '#facc15'; ctx.fillRect(-4.5, -1, 9, 2);
