@@ -217,25 +217,17 @@
 
   $('btnSave').onclick = () => {
     const w = validate();
-    if (w.length && !confirm('設定有以下問題，仍要儲存？\n\n' + w.join('\n'))) return;
     cur = collect();
-    if (ABX.saveSettings(cur)) toast('已儲存。模擬頁面會提示套用新設定。');
+    if (ABX.saveSettings(cur)) toast(w.length ? `已儲存（有 ${w.length} 項警告，請檢查下方提示）` : '已儲存。回到模擬頁時會提示套用新設定。');
     else toast('儲存失敗：瀏覽器不允許存取本機儲存空間');
     render();
   };
-  $('btnDefaults').onclick = () => {
-    if (!confirm('確定恢復全部預設值？（尚未儲存，按「儲存設定」後生效）')) return;
+  ABX.armConfirm($('btnDefaults'), '再按一次確認恢復', () => {
     cur = clone(ABX.DEFAULTS);
     render();
     toast('已載入預設值，請按「儲存設定」');
-  };
-  $('btnExport').onclick = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(collect(), null, 2)], { type: 'application/json' }));
-    a.download = 'autobank-x-settings.json';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
+  });
+  $('btnExport').onclick = () => ABX.showExport('設定 JSON', JSON.stringify(collect(), null, 2), 'autobank-x-settings.json', 'application/json');
   $('btnImport').onclick = () => $('fileImport').click();
   $('fileImport').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -246,6 +238,9 @@
     } catch (err) { toast('匯入失敗：檔案格式錯誤'); }
     e.target.value = '';
   };
+
+  // 嵌入環境中主頁不一定位於 index.html，優先返回上一頁
+  $('btnBack').onclick = (e) => { if (history.length > 1) { e.preventDefault(); history.back(); } };
 
   render();
 })();

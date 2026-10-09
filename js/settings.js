@@ -152,7 +152,55 @@
   }
   function fmtMoney(n) { return 'NT$' + Math.round(n).toLocaleString('en-US'); }
 
+  // 兩段式確認（部分嵌入環境不支援 confirm 對話框）
+  function armConfirm(btn, armedText, fn) {
+    const orig = btn.textContent;
+    let timer = null;
+    btn.addEventListener('click', () => {
+      if (btn.dataset.armed) {
+        clearTimeout(timer); delete btn.dataset.armed; btn.textContent = orig; btn.classList.remove('armed');
+        fn();
+        return;
+      }
+      btn.dataset.armed = '1'; btn.textContent = armedText; btn.classList.add('armed');
+      timer = setTimeout(() => { delete btn.dataset.armed; btn.textContent = orig; btn.classList.remove('armed'); }, 3500);
+    });
+  }
+
+  // 匯出面板：顯示可複製的內容，並嘗試下載（部分嵌入環境會封鎖下載）
+  function showExport(title, text, filename, mime) {
+    const old = document.getElementById('exportPanel');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'exportPanel'; wrap.className = 'overlay';
+    wrap.innerHTML = `<div class="overlay-box" role="dialog" aria-label="${title}">
+      <div class="card-head"><h3>${title}</h3><button class="btn small ghost" data-x>關閉</button></div>
+      <textarea id="exportText" readonly></textarea>
+      <div class="overlay-actions"><span class="muted" data-msg></span><button class="btn small" data-dl>下載檔案</button><button class="btn small primary" data-copy>複製內容</button></div></div>`;
+    document.body.appendChild(wrap);
+    const ta = wrap.querySelector('textarea');
+    ta.value = text;
+    const msg = wrap.querySelector('[data-msg]');
+    wrap.querySelector('[data-x]').onclick = () => wrap.remove();
+    wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+    wrap.querySelector('[data-copy]').onclick = () => {
+      const done = () => { msg.textContent = '已複製'; };
+      const fallback = () => { ta.focus(); ta.select(); msg.textContent = '已選取全部內容，請按 Ctrl/⌘+C 複製'; };
+      try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+    };
+    wrap.querySelector('[data-dl]').onclick = () => {
+      try {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+        a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        msg.textContent = '若沒有開始下載，請改用「複製內容」';
+      } catch (e) { msg.textContent = '此環境無法下載，請改用「複製內容」'; }
+    };
+  }
+
   Object.assign(ABX, {
+    armConfirm, showExport,
     SETTINGS_KEY: KEY, WD, ROLES, DEFAULTS, clone, merge,
     loadSettings: load, saveSettings: save, resetSettings: resetSaved,
     parseHM, parseTimes, pad, fmtHM, fmtHMS, fmtDur, fmtMoney,

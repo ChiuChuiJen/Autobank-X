@@ -218,12 +218,8 @@
     const R = ABX.S.reports.slice().reverse();
     const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'];
     const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)]);
-    const csv = '﻿' + [head].concat(rows).map((x) => x.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = 'autobank-x-report.csv';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    const csv = '\ufeff' + [head].concat(rows).map((x) => x.join(',')).join('\n');
+    ABX.showExport('每日營運報表（CSV）', csv, 'autobank-x-report.csv', 'text/csv');
   }
 
   /* ---------- 叫號音效 ---------- */
@@ -279,7 +275,7 @@
       const target = (d + 1) * 86400 + parseHM(settings.sim.startTime);
       jump(target - S.t);
     };
-    $('btnReset').onclick = () => { if (confirm('確定要重置模擬？目前進度與報表將清除。')) { setRunning(false); start(); } };
+    ABX.armConfirm($('btnReset'), '再按一次確認重置', () => { setRunning(false); start(); });
     $('logFilter').onchange = renderLog;
     $('btnCsv').onclick = exportCsv;
     $('staffTable').tBodies[0].onclick = (e) => {

@@ -14,6 +14,7 @@
   color: var(--ink);
 }
 * { box-sizing: border-box; }
+html { color-scheme: light; }
 body { margin: 0; background: var(--bg); font-size: 14px; }
 h3 { margin: 0 0 10px; font-size: 15px; }
 .muted { color: var(--muted); }
@@ -220,3 +221,10 @@ select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; ba
 .warn-list { color: var(--bad); font-size: 12px; margin: 0; padding-left: 18px; }
 .scroll-x { overflow-x: auto; }
 @media (max-width: 760px) { .hourly { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.btn.armed { background: var(--bad) !important; border-color: var(--bad) !important; color: #fff !important; }
+.overlay { position: fixed; inset: 0; z-index: 70; background: rgba(15, 23, 42, .5); display: grid; place-items: center; padding: 16px; }
+.overlay-box { background: var(--card); border-radius: var(--radius); padding: 16px; width: min(720px, 100%); display: grid; gap: 10px; }
+.overlay-box textarea { width: 100%; height: 300px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+.overlay-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.overlay-actions .muted { margin-right: auto; font-size: 12px; }
