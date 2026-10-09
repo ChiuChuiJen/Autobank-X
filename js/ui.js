@@ -68,12 +68,22 @@
   }
 
   function buildLegend() {
+    const P = ABX.People;
     const roles = Object.entries(ROLES).filter(([k]) => ABX.S.staff.some((a) => a.role === k));
-    const svc = settings.services;
+    const img = (look) => `<img src="${P.icon(look)}" alt="" width="24" height="24">`;
+    const staffIcons = roles.map(([k, r]) => {
+      const a = ABX.S.staff.find((x) => x.role === k);
+      return `<span class="lg">${img(a.look)}${r.label}</span>`;
+    }).join('');
+    const personaIcons = P.PERSONAS.map((p) => {
+      const look = { skin: '#efc6a6', hair: p.grey ? '#d6d3d1' : '#231a15', hairStyle: 0, outfit: p.outfits[0], trim: '#f8fafc', acc: p.acc };
+      return `<span class="lg">${img(look)}${p.label}</span>`;
+    }).join('');
     $('legend').innerHTML =
-      '<span class="lg-title">員工</span>' + roles.map(([, r]) => `<span class="lg"><i style="background:${r.color}"></i>${r.label}</span>`).join('') +
-      '<span class="lg-title">客戶</span>' + svc.map((s) => `<span class="lg"><i class="c" style="background:${s.color}"></i>${s.code} ${esc(s.name)}</span>`).join('') +
-      '<span class="lg"><i class="c" style="background:#64748b"></i>ATM</span><span class="lg"><i class="sq" style="background:#166534"></i>運鈔人員</span>';
+      `<div class="lg-row-group"><span class="lg-title">員工</span>${staffIcons}<span class="lg">${img(P.staffLook('運鈔', 'crew'))}運鈔人員</span></div>` +
+      `<div class="lg-row-group"><span class="lg-title">客戶</span>${personaIcons}</div>` +
+      `<div class="lg-row-group"><span class="lg-title">號碼牌</span>` + settings.services.map((s) => `<span class="lg"><i class="tag" style="background:${s.color}">${s.code}</i>${esc(s.name)}</span>`).join('') +
+      `<span class="lg"><i class="bub">…</i>有點不耐</span><span class="lg"><i class="bub bad">!</i>快失去耐心</span></div>`;
   }
 
   /* ---------- 主迴圈 ---------- */
@@ -194,7 +204,7 @@
     const S = ABX.S;
     const rows = S.staff.map((a) => {
       const loc = a.state === 'home' ? (a.arrivedToday ? '已下班' : '未到班') : ABX.Sim.whereOf(a);
-      return `<tr data-id="${a.id}" class="${S.highlight === a.id ? 'hl' : ''}${a.state === 'home' ? ' away' : ''}"><td><i class="dot" style="background:${a.color}"></i>${esc(a.name)}</td><td>${ROLES[a.role].label}</td><td>${esc(loc)}</td><td>${esc(a.state === 'home' ? '—' : a.label)}${a.overtime && a.state !== 'home' ? ' <em class="ot">加班</em>' : ''}</td></tr>`;
+      return `<tr data-id="${a.id}" class="${S.highlight === a.id ? 'hl' : ''}${a.state === 'home' ? ' away' : ''}"><td><i class="dot" style="background:${a.color}"></i>${esc(a.name)}</td><td>${ROLES[a.role].label}${ABX.People.LEVELS[a.level] ? '・' + ABX.People.LEVELS[a.level].label : ''}<small class="trait">${esc(a.trait || '')}</small></td><td>${esc(loc)}</td><td>${esc(a.state === 'home' ? '—' : a.label)}${a.overtime && a.state !== 'home' ? ' <em class="ot">加班</em>' : ''}</td></tr>`;
     }).join('');
     const tb = $('staffTable').tBodies[0];
     if (tb._html !== rows) { tb.innerHTML = rows; tb._html = rows; }

@@ -91,11 +91,12 @@
         <td><button class="btn small ghost danger" data-del="services" data-i="${i}">刪除</button></td></tr>`).join('')}</tbody>
     </table></div><p><button class="btn small" data-add="services">＋ 新增業務</button></p>`);
 
-    html += section('員工名單', `櫃員依序對應 1 號、2 號…櫃台；理財專員、放款專員對應 2F 座位。「服務項目」填業務代碼，順序即叫號優先順序（目前代碼：${esc(svcCodes)}）。員工名單變更需在模擬頁重置後生效。`, `<div class="scroll-x"><table class="tbl">
-      <thead><tr><th>#</th><th>姓名</th><th>職務</th><th>服務項目（櫃員／理專／放款）</th><th></th></tr></thead>
+    html += section('員工名單', `櫃員依序對應 1 號、2 號…櫃台；理財專員、放款專員對應 2F 座位。「服務項目」填業務代碼，順序即叫號優先順序（目前代碼：${esc(svcCodes)}）。資歷影響服務與盤點速度（新進 ×1.2、資深 ×0.85）。員工名單變更需在模擬頁重置後生效。`, `<div class="scroll-x"><table class="tbl">
+      <thead><tr><th>#</th><th>姓名</th><th>職務</th><th>資歷</th><th>服務項目（櫃員／理專／放款）</th><th></th></tr></thead>
       <tbody>${cur.staff.map((s, i) => `<tr><td>${i + 1}</td>
         <td>${input(`staff.${i}.name`, 'text', 'class="w-m"')}</td>
         <td>${select(`staff.${i}.role`, roleOpts)}</td>
+        <td>${select(`staff.${i}.level`, [['', '自動'], ['junior', '新進（較慢）'], ['regular', '一般'], ['senior', '資深（較快）']])}</td>
         <td>${['teller', 'advisor', 'loan'].includes(s.role) ? input(`staff.${i}.services`, 'text', 'class="w-m"') : '<span class="muted">—</span>'}</td>
         <td><button class="btn small ghost danger" data-del="staff" data-i="${i}">刪除</button></td></tr>`).join('')}</tbody>
     </table></div><p><button class="btn small" data-add="staff">＋ 新增員工</button></p>`);

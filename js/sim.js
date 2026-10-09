@@ -23,7 +23,7 @@
     const sigma = 0.4, mu = Math.log(avgMin * 60) - (sigma * sigma) / 2;
     return Math.max(60, Math.exp(mu + sigma * gauss()));
   }
-  const jit = (s, r) => ({ floor: s.floor, x: s.x + R(-r, r), y: s.y + R(-r, r) });
+  const jit = (s, r) => ({ floor: s.floor, x: s.x + R(-r, r), y: s.y + R(-r, r), face: s.face });
 
   /* ---------- 時間 ---------- */
   function today() { const d = Math.floor(S.t / DAY); return { d, wd: d % 7, tod: S.t - d * DAY }; }
@@ -51,13 +51,14 @@
   const later = (a, ...tasks) => a.tasks.push(...tasks);
 
   function mkAgent(o) {
-    const a = Object.assign({ id: ++S.nextId, floor: null, x: 0, y: 0, path: [], tasks: [], cur: null, label: '', transfer: null, speed: 26 }, o);
+    const a = Object.assign({ id: ++S.nextId, floor: null, x: 0, y: 0, path: [], tasks: [], cur: null, label: '', transfer: null, speed: 26, dir: 0, walk: 0, moving: false }, o);
     S.agents.push(a);
     return a;
   }
 
   function routeTo(a, dest) {
     if (a.floor === null) { a.floor = 1; a.x = L.spots.street.x; a.y = L.spots.street.y + R(-20, 20); }
+    a.faceTo = dest.face;
     if (a.floor === dest.floor) a.path = L.floorPath(a.floor, a, dest);
     else a.path = L.floorPath(a.floor, a, L.stairs(a.floor)).concat([{ transfer: dest.floor }], L.floorPath(dest.floor, L.stairs(dest.floor), dest));
   }
@@ -73,9 +74,14 @@
         return;
       }
       const dx = p.x - a.x, dy = p.y - a.y, d = Math.hypot(dx, dy);
+      if (d > 0.01) a.dir = Math.atan2(dy, dx);
+      const stepLen = Math.min(d, remain);
+      a.walk += stepLen * 0.35;
       if (d <= remain) { a.x = p.x; a.y = p.y; a.path.shift(); remain -= d; }
       else { a.x += (dx / d) * remain; a.y += (dy / d) * remain; remain = 0; }
     }
+    a.moving = a.path.length > 0;
+    if (!a.moving && a.faceTo !== undefined) a.dir = a.faceTo;
   }
 
   function startTask(a, k) {
@@ -102,6 +108,7 @@
       a.floor = a.transfer.to; const s = L.stairs(a.floor); a.x = s.x; a.y = s.y; a.transfer = null;
     }
     if (a.path.length) { moveStep(a, dt); return; }
+    a.moving = false;
     for (let guard = 0; guard < 16; guard++) {
       if (a.cur) { if (!checkTask(a, a.cur)) return; a.cur = null; }
       if (a.dead) return;
@@ -140,7 +147,10 @@
       const k = (roleIdx[cfg.role] = (roleIdx[cfg.role] || 0) + 1) - 1;
       const a = mkAgent({
         kind: 'staff', role: cfg.role, name: cfg.name || ROLES[cfg.role].label, color: ROLES[cfg.role].color,
-        roleIdx: k, staffIdx: i, state: 'home', label: '未到班', cash: 0,
+        roleIdx: k, staffIdx: i, state: 'home', label: '未到班', cash: 0, dir: Math.PI / 2,
+        look: ABX.People.staffLook(cfg.name || String(i), cfg.role),
+        level: ABX.People.LEVELS[cfg.level] ? cfg.level : ABX.People.autoLevel(cfg.name || String(i)),
+        trait: ABX.People.trait(cfg.name || String(i), cfg.role),
         lockerIdx: i % L.lockers.length, loungeIdx: i % L.loungeSeats.length,
       });
       if (a.role !== 'security' && a.role !== 'cleaner') a.meetIdx = attendee++;
@@ -371,8 +381,9 @@
     const wait = w - tk.issuedAt;
     D.stats.waitSum += wait; D.stats.waitN++; D.stats.waitMax = Math.max(D.stats.waitMax, wait);
     const svc = svcOf(tk.code);
-    const dur = svcDur(+svc.avgMin || 5);
-    const needAppr = a.role === 'teller' && rnd() * 100 < +svc.approvalProb;
+    const lv = ABX.People.LEVELS[a.level] || ABX.People.LEVELS.regular;
+    const dur = svcDur(+svc.avgMin || 5) * lv.svc * (c.persona && c.persona.key === 'senior' ? 1.2 : 1);
+    const needAppr = a.role === 'teller' && rnd() * 100 < +svc.approvalProb * lv.appr;
     const label = `服務 ${tk.no}・${svc.name}`;
     c.label = `辦理 ${svc.name}`;
     const seq = [T.wait(dur * (needAppr ? 0.6 : 1), label)];
@@ -411,7 +422,7 @@
     log('盤點', `${p.label}（${a.name}）停止服務，開始盤點`);
     if (a.role === 'teller') {
       later(a,
-        T.wait(R(20, 35) * 60, '現金盤點・清點庫存'),
+        T.wait(R(20, 35) * 60 * (ABX.People.LEVELS[a.level] || ABX.People.LEVELS.regular).count, '現金盤點・清點庫存'),
         T.do(() => {
           if (rnd() * 100 < +S.settings.cash.discrepancyProb) {
             const req = { p, a, kind: '差額查核', dur: R(300, 600), done: false, taken: false };
@@ -742,12 +753,15 @@
   function spawnCustomer() {
     const avail = serviceAvailable();
     if (!avail.length) return;
-    const total = avail.reduce((s, x) => s + +x.ratio, 0);
+    const persona = ABX.People.pickPersona(rnd);
+    const wOf = (x) => +x.ratio * ((persona.pref && persona.pref[x.code]) || 1);
+    const total = avail.reduce((s, x) => s + wOf(x), 0);
     let r = rnd() * total, svc = avail[0];
-    for (const x of avail) { r -= +x.ratio; if (r <= 0) { svc = x; break; } }
+    for (const x of avail) { r -= wOf(x); if (r <= 0) { svc = x; break; } }
     const D = S.D;
-    const c = mkAgent({ kind: 'customer', code: svc.code, name: '客戶', color: svc.color, floor: 1, x: L.spots.street.x, y: L.spots.street.y + R(-25, 25),
-      speed: R(18, 30), enteredAt: S.t, patience: R(0.6, 1.5) * (+S.settings.customers.patienceMin || 40) * 60, label: '進入分行' });
+    const c = mkAgent({ kind: 'customer', code: svc.code, name: persona.label, persona, look: ABX.People.customerLook(persona, rnd), color: svc.color,
+      floor: 1, x: L.spots.street.x, y: L.spots.street.y + R(-25, 25),
+      speed: R(22, 28) * persona.speed, enteredAt: S.t, patience: R(0.6, 1.5) * persona.patience * (+S.settings.customers.patienceMin || 40) * 60, label: '進入分行' });
     D.stats.arrived++;
     later(c, T.go(jit(L.spots.foyerIn, 25), '進入分行'), T.do(() => afterEnter(c)));
   }
@@ -779,7 +793,7 @@
     const fl = svc.floor === 2 && S.points.some((p) => p.floor === 2 && p.services.includes(c.code)) ? 2 : 1;
     const free = L.seats[fl].filter((s) => !s.occ);
     let dest;
-    if (free.length) { const s = pick(free.slice(0, Math.max(6, free.length))); s.occ = c; c.seat = s; dest = { floor: fl, x: s.x, y: s.y }; }
+    if (free.length) { const s = pick(free.slice(0, Math.max(6, free.length))); s.occ = c; c.seat = s; dest = { floor: fl, x: s.x, y: s.y, face: -Math.PI / 2 }; }
     else { const st = L.stand[fl]; dest = { floor: fl, x: st.x + rnd() * st.w, y: st.y + rnd() * st.h }; }
     later(c, T.go(dest, `前往${fl === 2 ? ' 2F ' : ''}等候區`),
       T.until(() => tk.status === 'called' || S.t - tk.issuedAt > c.patience, '等候叫號 ' + no),
@@ -809,7 +823,9 @@
   }
 
   function spawnAtm() {
-    const c = mkAgent({ kind: 'customer', atm: true, name: 'ATM 客戶', color: '#64748b', floor: 1, x: L.spots.street.x, y: 100 + R(-30, 30), speed: R(20, 30), label: '前往 ATM' });
+    const persona = ABX.People.pickPersona(rnd);
+    const c = mkAgent({ kind: 'customer', atm: true, name: 'ATM 客戶（' + persona.label + '）', persona, look: ABX.People.customerLook(persona, rnd), color: '#64748b',
+      floor: 1, x: L.spots.street.x, y: 100 + R(-30, 30), speed: R(22, 28) * persona.speed, label: '前往 ATM' });
     later(c, T.go(jit(L.spots.atmQueue, 18), '前往 ATM'),
       T.until(() => L.atms.some((m) => !m.user), '排隊等候 ATM', 600),
       T.do(() => {
@@ -826,7 +842,8 @@
     log('金庫', `${fmtHM(tod())} 運鈔車抵達分行`);
     ev.spawned = true;
     for (let i = 0; i < 2; i++) {
-      const c = mkAgent({ kind: 'visitor', role: 'crew', name: '運鈔員', color: '#166534', floor: 1, x: L.spots.street.x, y: L.spots.street.y + i * 14, speed: 24, label: '運鈔車抵達' });
+      const c = mkAgent({ kind: 'visitor', role: 'crew', name: '運鈔員', color: '#166534', look: ABX.People.staffLook('運鈔' + i, 'crew'), cashbox: true,
+        floor: 1, x: L.spots.street.x, y: L.spots.street.y + i * 14, speed: 24, label: '運鈔車抵達' });
       later(c, T.go({ floor: 1, x: L.spots.crew.x + i * 16, y: L.spots.crew.y }, '進入分行'),
         T.do(() => { ev.arrived++; }),
         T.until(() => ev.escort, '等候保全戒護', 300),
