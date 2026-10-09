@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autobank-X 銀行模擬</title>
+  <meta name="description" content="銀行分行每日作業模擬：樓層、大廳、叫號、員工與客戶、送件與金庫作業。">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">X</div>
+      <div>
+        <div id="bankName" class="bank-name">Autobank-X</div>
+        <div id="branchName" class="sub"></div>
+      </div>
+    </div>
+    <div class="clock">
+      <div id="dateLabel" class="date">Day 1（一）</div>
+      <div id="timeLabel" class="time">00:00:00</div>
+    </div>
+    <div id="phaseChip" class="chip">—</div>
+    <div class="controls">
+      <button id="btnPlay" class="btn primary">▶ 開始</button>
+      <label class="speed">速度
+        <select id="speed">
+          <option value="1">1×（即時 1:1）</option>
+          <option value="2">2×</option>
+          <option value="5">5×</option>
+          <option value="10">10×</option>
+          <option value="30">30×</option>
+          <option value="60">60×（1 秒 = 1 分）</option>
+          <option value="180">180×</option>
+          <option value="600">600×</option>
+        </select>
+      </label>
+      <button id="btnHour" class="btn" title="立即模擬 1 小時">⏩ +1 小時</button>
+      <button id="btnNextDay" class="btn" title="快轉至下一天的起始時間">⏭ 下一天</button>
+      <button id="btnReset" class="btn">↺ 重置</button>
+      <a class="btn" href="admin.html">⚙ 後台設定</a>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden>
+    <span>後台設定已更新。</span>
+    <button id="btnApplyReset" class="btn primary small">套用並重置模擬</button>
+    <button id="btnApplyLive" class="btn small" title="營業時間、來客量、送件時間等立即生效；員工名單需重置才會生效">僅套用營運參數</button>
+    <button id="btnBannerClose" class="btn small ghost">稍後</button>
+  </div>
+
+  <section class="timeline-wrap card">
+    <div class="timeline-head">
+      <strong>今日作業時程</strong>
+      <span id="timelineInfo" class="muted"></span>
+    </div>
+    <div id="timeline" class="timeline"></div>
+    <div class="timeline-axis"><span>00</span><span>03</span><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+  </section>
+
+  <main class="layout">
+    <section class="card floors">
+      <div class="floors-head">
+        <div id="floorTabs" class="tabs" role="tablist"></div>
+        <div class="opts">
+          <label><input type="checkbox" id="optLabels"> 員工狀態</label>
+          <label><input type="checkbox" id="optSound"> 叫號音效</label>
+          <label><input type="checkbox" id="optVoice"> 語音叫號</label>
+        </div>
+      </div>
+      <div id="floorGrid" class="floor-grid"></div>
+      <div id="legend" class="legend"></div>
+    </section>
+
+    <aside class="side">
+      <section class="card board">
+        <div class="board-title">叫號看板</div>
+        <div id="boardNow" class="board-now">—</div>
+        <div id="boardList" class="board-list"></div>
+        <div id="queueSummary" class="queue-summary"></div>
+      </section>
+      <section class="card">
+        <h3>服務窗口</h3>
+        <div id="points" class="points"></div>
+      </section>
+      <section class="card">
+        <h3>今日統計</h3>
+        <div id="stats" class="stats"></div>
+      </section>
+      <section class="card">
+        <h3>送件流程</h3>
+        <div id="pipeline" class="pipeline"></div>
+        <div id="docList" class="doc-list"></div>
+      </section>
+    </aside>
+  </main>
+
+  <section class="bottom">
+    <section class="card">
+      <div class="card-head">
+        <h3>員工動態</h3>
+        <span id="staffCount" class="muted"></span>
+      </div>
+      <div class="table-wrap"><table class="table" id="staffTable">
+        <thead><tr><th>員工</th><th>職務</th><th>位置</th><th>目前作業</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </section>
+    <section class="card">
+      <div class="card-head">
+        <h3>事件紀錄</h3>
+        <select id="logFilter">
+          <option value="">全部</option>
+          <option>叫號</option><option>櫃檯</option><option>客戶</option><option>員工</option>
+          <option>送件</option><option>金庫</option><option>盤點</option><option>保全</option><option>系統</option>
+        </select>
+      </div>
+      <div id="log" class="log"></div>
+    </section>
+  </section>
+
+  <section class="card reports">
+    <div class="card-head">
+      <h3>每日營運報表</h3>
+      <button id="btnCsv" class="btn small">匯出 CSV</button>
+    </div>
+    <div class="table-wrap"><table class="table" id="reportTable">
+      <thead><tr><th>日期</th><th>來客</th><th>完成</th><th>放棄</th><th>平均等候</th><th>最長等候</th><th>ATM</th><th>產生文件</th><th>送達總行</th><th>送件趟數</th><th>運鈔</th><th>主管授權</th><th>加班人次</th><th>最後離開</th><th>金庫庫存</th></tr></thead>
+      <tbody><tr><td colspan="15" class="muted">每日 24:00 結算後顯示</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <footer class="foot muted">Autobank-X 銀行作業模擬 · 模擬時間預設與真實時間 1:1 · 點擊人物可追蹤</footer>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+
+  <script src="js/settings.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

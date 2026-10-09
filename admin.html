@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autobank-X 後台設定</title>
+  <meta name="description" content="設定銀行模擬的營業時間、員工名單、業務項目、來客量、送件與金庫參數。">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">X</div>
+      <div>
+        <div class="bank-name">後台設定</div>
+        <div class="sub">設定會儲存在此瀏覽器，模擬頁面會自動偵測變更</div>
+      </div>
+    </div>
+    <div class="controls">
+      <a class="btn" href="index.html">← 回到模擬</a>
+    </div>
+  </header>
+
+  <main id="admin" class="admin-wrap"></main>
+
+  <div class="sticky-actions">
+    <ul id="warnings" class="warn-list" style="margin-right:auto"></ul>
+    <button id="btnImport" class="btn">匯入 JSON</button>
+    <button id="btnExport" class="btn">匯出 JSON</button>
+    <button id="btnDefaults" class="btn danger">恢復預設值</button>
+    <button id="btnSave" class="btn primary">儲存設定</button>
+    <input id="fileImport" type="file" accept="application/json,.json" hidden>
+  </div>
+
+  <script src="js/settings.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
