@@ -45,7 +45,7 @@
       who: '大堂經理重新開機並人工發號 → 資訊廠商遠端修復',
       make() {
         const L = C().L, S = C().S;
-        const steps = [{ label: '重新開機・改為人工發號', roles: ['guide', 'security'], dur: 180, at: beside(L.spots.ticket, 26, 4) }];
+        const steps = [{ label: '重新開機・改為人工發號', roles: ['guide', 'it', 'security'], dur: 180, at: beside(L.spots.ticket, 26, 4) }];
         if (C().rnd() < 0.5) steps.push({ label: '資訊廠商遠端修復', timer: [8, 20] });
         steps.push({ label: '測試取號功能', roles: ['guide', 'security'], dur: 40, at: beside(L.spots.ticket, 26, 4) });
         return {
@@ -57,7 +57,7 @@
     },
     system: {
       name: '核心系統斷線', sev: 'high', mode: 'rate', unit: '次／日',
-      who: '廣播安撫 → 後勤通報資訊處 → 搶修 → 主管測試恢復',
+      who: '廣播安撫 → 資訊人員檢查並通報資訊處 → 搶修 → 主管測試恢復',
       make() {
         const L = C().L, S = C().S;
         return {
@@ -65,7 +65,7 @@
           start() { S.D.sysDown = true; extendPatience(20); }, end() { S.D.sysDown = false; },
           steps: [
             { label: '廣播致歉・安撫等候客戶', roles: ['guide', 'supervisor'], dur: 60, at: beside(L.spots.lobbyA, 0, 40) },
-            { label: '通報資訊處・確認影響範圍', roles: ['backoffice', 'supervisor'], dur: 120, at: 'station' },
+            { label: '資訊人員檢查主機・通報資訊處', roles: ['it', 'backoffice', 'supervisor'], dur: 120, at: 'station' },
             { label: '資訊處搶修中', timer: [10, 25] },
             { label: '測試交易・恢復櫃台作業', roles: ['supervisor', 'manager'], dur: 120, at: L.spots.supDesk },
           ],
@@ -74,7 +74,7 @@
     },
     power: {
       name: '停電', sev: 'high', mode: 'rate', unit: '次／日',
-      who: '保全啟動發電機 → 安撫客戶 → 等待復電 → 檢查設備',
+      who: '監控員／保全啟動發電機 → 安撫客戶 → 等待復電 → 檢查設備',
       make() {
         const L = C().L, S = C().S;
         const gen = { floor: -1, x: 670, y: 345 };
@@ -83,7 +83,7 @@
           start() { S.D.powerOut = true; S.D.generator = false; extendPatience(25); },
           end() { S.D.powerOut = false; S.D.generator = false; },
           steps: [
-            { label: '至機電室啟動緊急發電機', roles: ['security', 'backoffice', 'manager'], dur: 180, at: gen, onDone() { S.D.generator = true; } },
+            { label: '至機電室啟動緊急發電機', roles: ['monitor', 'security', 'backoffice', 'manager'], dur: 180, at: gen, onDone() { S.D.generator = true; } },
             { label: '安撫客戶・說明暫停服務', roles: ['guide', 'supervisor'], dur: 90, at: beside(L.spots.lobbyA, 0, 40) },
             { label: '等待台電復電', timer: [10, 30] },
             { label: '檢查設備・恢復營業', roles: ['supervisor', 'security'], dur: 120, at: L.spots.supDesk },
@@ -133,7 +133,7 @@
           start() {}, end() {},
           steps: [
             { label: '放置小心地滑警示牌・拖地', roles: ['cleaner', 'guide', 'security'], dur: 300, at: beside(spot, 20, 0) },
-            { label: '通報大樓物業修繕', roles: ['backoffice', 'supervisor', 'security'], dur: 60, at: 'station' },
+            { label: '通報大樓物業修繕', roles: ['supply', 'backoffice', 'supervisor', 'security'], dur: 60, at: 'station' },
             { label: '水電師傅到場修繕', ext: { who: 'plumber', count: 1, travel: [15, 30], work: 20, at: beside(spot, 0, 18) } },
           ],
         };
@@ -141,7 +141,7 @@
     },
     alarm: {
       name: '火警警報誤報', sev: 'mid', mode: 'rate', unit: '次／日',
-      who: '保全查看受信總機 → 現場確認廣播 → 復歸警報',
+      who: '監控員查看受信總機 → 保全現場確認廣播 → 復歸警報',
       make() {
         const L = C().L, S = C().S;
         const panel = L.spots.monitor;
@@ -149,9 +149,9 @@
           where: panel, detail: '火警受信總機發報，警鈴大作',
           start() { S.D.alarm = true; extendPatience(5); }, end() { S.D.alarm = false; },
           steps: [
-            { label: '查看火警受信總機', roles: ['security', 'manager'], dur: 90, at: panel },
+            { label: '查看火警受信總機', roles: ['monitor', 'security', 'manager'], dur: 90, at: panel },
             { label: '現場確認無火源・廣播安撫', roles: ['security', 'guide', 'manager'], dur: 150, at: beside(L.spots.lobbyB, -20, 0) },
-            { label: '復歸警報・回報大樓物業', roles: ['security', 'manager'], dur: 60, at: panel },
+            { label: '復歸警報・回報大樓物業', roles: ['monitor', 'security', 'manager'], dur: 60, at: panel },
           ],
         };
       },

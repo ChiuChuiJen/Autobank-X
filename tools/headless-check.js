@@ -6,7 +6,7 @@ const ctx = { window: {}, console, Math, JSON, Date };
 ctx.window = ctx;
 ctx.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 vm.createContext(ctx);
-for (const f of ['settings.js', 'layout.js', 'people.js', 'sim.js', 'incidents.js', 'roster.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
+for (const f of ['settings.js', 'layout.js', 'people.js', 'sim.js', 'incidents.js', 'roster.js', 'backroom.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
 const ABX = ctx.ABX;
 const days = +(process.argv[2] || 7);
 const s = ABX.loadSettings();

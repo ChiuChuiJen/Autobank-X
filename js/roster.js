@@ -17,13 +17,14 @@
     teller: ['backoffice', 'digital', 'guide'], digital: ['guide', 'backoffice'],
     advisor: ['vip', 'loan'], loan: ['corporate', 'advisor'], corporate: ['loan', 'advisor'], vip: ['advisor', 'corporate'],
     safebox: ['backoffice', 'guide'], supervisor: ['teller'], manager: ['corporate', 'vip', 'supervisor'],
-    guide: ['digital', 'backoffice'], backoffice: ['audit'], courier: ['backoffice', 'guide'],
-    security: [], cleaner: [], audit: [],
+    guide: ['digital', 'backoffice'], backoffice: ['audit', 'archivist', 'supply'], courier: ['supply', 'backoffice', 'guide'],
+    security: ['monitor'], cleaner: ['supply'], audit: [],
+    vaultkeeper: ['supervisor', 'teller'], archivist: ['supply', 'backoffice'], monitor: ['security', 'it'], it: ['monitor'], supply: ['archivist', 'courier'],
   };
-  const DISPATCH_OK = ['manager', 'teller', 'digital', 'advisor', 'loan', 'corporate', 'vip', 'safebox', 'guide', 'courier', 'security', 'cleaner', 'backoffice', 'supervisor'];
+  const DISPATCH_OK = ['vaultkeeper', 'archivist', 'monitor', 'it', 'supply', 'manager', 'teller', 'digital', 'advisor', 'loan', 'corporate', 'vip', 'safebox', 'guide', 'courier', 'security', 'cleaner', 'backoffice', 'supervisor'];
   // 被借調後原職務至少要保留的在崗人數
   const KEEP = { backoffice: 2 };
-  const PRIORITY = ['supervisor', 'manager', 'security', 'teller', 'guide', 'courier', 'digital', 'safebox', 'advisor', 'loan', 'corporate', 'vip', 'backoffice', 'cleaner', 'audit'];
+  const PRIORITY = ['supervisor', 'manager', 'security', 'vaultkeeper', 'teller', 'guide', 'courier', 'digital', 'safebox', 'advisor', 'loan', 'corporate', 'vip', 'backoffice', 'cleaner', 'audit'];
   const TEMP_NAMES = ['林雅文', '陳柏宇', '黃郁婷', '張志豪', '李宛蓉', '吳承恩', '蔡欣怡', '楊凱文', '徐若瑜', '高振宏'];
 
   function cfg() {

@@ -166,6 +166,7 @@
         S.points.push(p);
       } else if (sr) { a.station = shift(L.spots.corr3, k); a.noDesk = true; }   // 超過座位數：留在 3F 支援
       else if (a.role === 'audit') a.station = shift(L.spots.auditDesk, k);
+      else if (L.spots['st_' + a.role]) a.station = shift(L.spots['st_' + a.role], -k);
       else if (a.role === 'manager') a.station = shift(L.spots.mgrDesk, k);
       else if (a.role === 'supervisor') a.station = shift(L.spots.supDesk, k);
       else if (a.role === 'guide') a.station = shift(L.spots.guide, -k);
@@ -229,14 +230,15 @@
     log('系統', `Day ${d + 1}（${WD[wd]}）${h.open ? `營業日 ${fmtHM(h.start)}～${fmtHM(h.last)} 收件，${fmtHM(h.end)} 下班` : '休假日（僅 ATM 服務）'}`);
   }
 
-  const LUNCH_OFF = { teller: 0, advisor: 1, loan: 2, backoffice: 0, supervisor: 0, manager: 2, guide: 1, courier: 1, cleaner: 3, digital: 2, safebox: 1, corporate: 3, vip: 0, audit: 2 };
+  const LUNCH_OFF = { teller: 0, advisor: 1, loan: 2, backoffice: 0, supervisor: 0, manager: 2, guide: 1, courier: 1, cleaner: 3, digital: 2, safebox: 1, corporate: 3, vip: 0, audit: 2,
+    vaultkeeper: 3, archivist: 1, monitor: 2, it: 0, supply: 3 };
   function resetDaily(a) {
     const h = S.D.h, sr = S.settings.staffRules, dc = S.D.dc;
     const before = a.role === 'security' ? +sr.securityArriveBefore : a.role === 'cleaner' ? +sr.cleanerArriveBefore : +sr.arriveBefore;
     Object.assign(a, {
       arrivedToday: false, didMeeting: false, prepDone: false, lunchDone: false, closing: false, closingDone: false,
       cashReturned: false, overtime: false, vaultOpenHelped: false, vaultCloseHelped: false, carry: [], bag: [],
-      absent: false, leave: null, leaveAt: null, scheduled: true,
+      absent: false, leave: null, leaveAt: null, scheduled: true, nextFetch: null, nextRound: null, nextVisit: null,
       arriveAt: h.start - before * 60 + R(-8, 3) * 60,
       nextPatrol: h.start + R(20, 50) * 60,
       lunchAt: dc.hasLunch && a.role !== 'security' && LUNCH_OFF[a.role] !== undefined ? dc.lunchStart + ((a.roleIdx + LUNCH_OFF[a.role]) % dc.slots) * dc.lunchLen : null,
@@ -304,7 +306,7 @@
       a.didMeeting = true;
     }
     if (ABX.Incidents && ABX.Incidents.decide(a, t, h)) return;
-    (a.noDesk ? supportDecide : DECIDE[a.role] || idle)(a, t, h);
+    (a.noDesk ? supportDecide : DECIDE[a.role] || (ABX.Backroom && ABX.Backroom.DECIDE[a.role]) || idle)(a, t, h);
   }
 
   function idle(a) { later(a, T.wait(30, '待命')); }
@@ -448,6 +450,7 @@
       docMsg = `，產生「${doc.name}」待送件`;
     }
     p.current = null;
+    if (ABX.Backroom) ABX.Backroom.afterService(a, p);
     log('櫃檯', `${tk.no} 於 ${p.label} 完成${svc.name}（${Math.round((S.t - tk.startAt) / 60)} 分）${docMsg}`);
   }
 
@@ -698,6 +701,7 @@
         T.do(() => {
           for (const d of a.bag) setStage(d, '已送達總行');
           S.D.stats.docsDelivered += a.bag.length;
+          S.archiveQ = (S.archiveQ || 0) + a.bag.length;   // 分行留存副本待歸檔
           log('送件', `${a.bag.length} 件文件已送達總行`);
           a.bag = [];
           const n = Math.floor(R(0, 3));
@@ -978,7 +982,7 @@
     Sim: { reset, advance, phaseInfo, whereOf, svcOf, docsIn, customersInside, hoursOf, DAY },
     // 給臨時事件模組使用的內部工具
     SimCore: {
-      T, now, later, mkAgent, log, R, pick, rnd, jit, atSpot, staffOf, onDuty, tod, createDoc, leave, freeSeat, waitForCall, resetDaily, hoursOf,
+      T, now, later, mkAgent, log, R, pick, rnd, jit, atSpot, staffOf, onDuty, tod, createDoc, leave, freeSeat, waitForCall, resetDaily, hoursOf, lunchDue, goLunch, allServiceClosed, customersInside,
       get S() { return S; }, get L() { return L; },
     },
   });

@@ -282,8 +282,16 @@
     db.push({ t: 'cart', x: 30, y: 140 }); db.push({ t: 'cart', x: 60, y: 140 });
     for (let k = 0; k < 3; k++) db.push(shelf(k ? 460 : 520, 28 + k * 26, k ? 250 : 190, 12, k === 1 ? '檔案櫃' : ''));
     db.push({ t: 'tv', x: 810, y: 30, w: 150, h: 30, wall: true });
-    db.push(desk(815, 72, 80, 18, { c: '#94a3b8' }));
-    db.push(chair(855, 100, UP, '#1e293b'));
+    db.push(desk(790, 72, 140, 18, { c: '#94a3b8' }));
+    db.push(chair(850, 100, UP, '#334155'));
+    db.push(chair(900, 100, UP, '#1e293b'));
+    db.push(desk(780, 135, 60, 20, { c: '#a5f3fc', mon: 'down', label: '資訊' }));
+    db.push(chair(810, 125, DOWN, '#164e63'));
+    db.push(chair(382, 80, DOWN, '#14532d'));
+    db.push(desk(640, 118, 60, 20, { c: '#bae6fd', mon: 'down', label: '歸檔' }));
+    db.push(chair(670, 108, DOWN, '#075985'));
+    db.push(desk(480, 372, 60, 22, { c: '#fde68a', label: '總務' }));
+    db.push(chair(510, 362, DOWN, '#854d0e'));
     db.push({ t: 'rack', x: 742, y: 110, w: 26, h: 56 }); db.push({ t: 'rack', x: 942, y: 110, w: 26, h: 56 });
     db.push({ t: 'lockers', x: 30, y: 380, w: 270, h: 20, label: '' });
     db.push({ t: 'lockers', x: 286, y: 262, w: 18, h: 110 });
@@ -305,7 +313,15 @@
     L.spots.crewVault = sp(-1, 380, 150, UP);
     L.spots.escortB1 = sp(-1, 260, 210, UP);
     L.spots.archive = sp(-1, 585, 115, UP);
-    L.spots.monitor = sp(-1, 855, 100, UP);
+    L.spots.monitor = sp(-1, 850, 100, UP);
+    // B1 常駐人員座位
+    L.spots.st_vaultkeeper = sp(-1, 382, 80, DOWN);
+    L.spots.st_archivist = sp(-1, 670, 108, DOWN);
+    L.spots.st_monitor = sp(-1, 900, 100, UP);
+    L.spots.st_it = sp(-1, 810, 125, DOWN);
+    L.spots.st_supply = sp(-1, 510, 362, DOWN);
+    L.spots.archiveShelf = sp(-1, 560, 100, UP);
+    L.spots.mechRoom = sp(-1, 670, 345, UP);
     L.spots.closet = sp(-1, 360, 340, RIGHT);
     L.vaultSpots = [];
     for (let k = 0; k < 16; k++) L.vaultSpots.push(sp(-1, 50 + (k % 8) * 36, 75 + Math.floor(k / 8) * 40, UP));

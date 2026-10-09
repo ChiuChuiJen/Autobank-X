@@ -36,6 +36,11 @@
     corporate:  { outfit: '#334155', trim: '#93c5fd', acc: 'tie' },
     vip:        { outfit: '#450a0a', trim: '#facc15', acc: 'tie' },
     audit:      { outfit: '#4c1d95', trim: '#e9d5ff', acc: 'lanyard' },
+    vaultkeeper:{ outfit: '#14532d', trim: '#facc15', acc: 'keys' },
+    archivist:  { outfit: '#075985', trim: '#e0f2fe', acc: 'lanyard' },
+    monitor:    { outfit: '#1e293b', trim: '#38bdf8', acc: 'badge' },
+    it:         { outfit: '#164e63', trim: '#67e8f9', acc: 'tablet' },
+    supply:     { outfit: '#854d0e', trim: '#fde68a', acc: 'apron' },
     tech:       { outfit: '#c2410c', trim: '#fde68a', acc: 'bag' },
     paramedic:  { outfit: '#f8fafc', trim: '#dc2626', acc: 'sash' },
     police:     { outfit: '#1e3a8a', trim: '#facc15', acc: 'cap' },
@@ -64,6 +69,11 @@
     corporate:  ['財報分析', '中小企業輔導', '貿易融資'],
     vip:        ['家族信託', '高資產配置', '國際稅務'],
     audit:      ['洗錢防制', '鐵面無私', '法規熟稔'],
+    vaultkeeper:['點鈔機般精準', '雙人複核堅持者', '現金調度老手'],
+    archivist:  ['過目不忘', '分類達人', '檔案編號活字典'],
+    monitor:    ['眼觀十面', '反應迅速', '熟悉每支鏡頭'],
+    it:         ['重開機大師', '網路診斷高手', '資安控'],
+    supply:     ['庫存精算', '跑腿最快', '什麼都找得到'],
   };
 
   /* 客戶類型：比重、步行速度、耐心、業務偏好 */

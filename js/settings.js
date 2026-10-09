@@ -21,7 +21,14 @@
     corporate:  { label: '企金專員',     color: '#475569' },
     vip:        { label: '貴賓理專',     color: '#b91c1c' },
     audit:      { label: '法遵稽核',     color: '#6d28d9' },
+    vaultkeeper:{ label: '金庫管理員',   color: '#15803d' },
+    archivist:  { label: '檔案管理員',   color: '#0369a1' },
+    monitor:    { label: '監控員',       color: '#1e293b' },
+    it:         { label: '資訊人員',     color: '#0891b2' },
+    supply:     { label: '總務',         color: '#a16207' },
   };
+  // B1 各室常駐職務（舊版設定載入時自動補上）
+  const B1_ROLES = ['vaultkeeper', 'archivist', 'monitor', 'it', 'supply'];
 
   // 有服務窗口的職務：窗口類型、所在樓層說明、預設服務代碼
   const SERVICE_ROLES = {
@@ -35,6 +42,7 @@
   };
 
   const DEFAULTS = {
+    _b1Staff: true,
     bank: { name: 'Autobank-X 銀行', branch: '信義分行' },
     sim: { startDay: 1, startTime: '07:00', defaultSpeed: 1, seed: '', sound: true, voice: false, showLabels: true },
     // 索引 0 = 星期一 … 6 = 星期日
@@ -140,6 +148,11 @@
       { name: '洪嘉玲', role: 'backoffice' },
       { name: '曾建宏', role: 'backoffice' },
       { name: '葉淑惠', role: 'audit' , days: '12345' },
+      { name: '何志成', role: 'vaultkeeper' },
+      { name: '簡美華', role: 'archivist', days: '12345' },
+      { name: '鍾明德', role: 'monitor' },
+      { name: '白家豪', role: 'it', days: '12345' },
+      { name: '賴秀琴', role: 'supply', days: '12345' },
       { name: '周文彬', role: 'courier' },
       { name: '楊大同', role: 'security' },
       { name: '林秀英', role: 'cleaner' },
@@ -167,7 +180,15 @@
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) return merge(DEFAULTS, JSON.parse(raw));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const s = merge(DEFAULTS, saved);
+        if (!saved._b1Staff) {   // 一次性補上 B1 常駐人員
+          for (const d of DEFAULTS.staff) if (B1_ROLES.includes(d.role) && !s.staff.some((x) => x.role === d.role)) s.staff.push(clone(d));
+          s._b1Staff = true;
+        }
+        return s;
+      }
     } catch (e) { /* 無法讀取時使用預設值 */ }
     return clone(DEFAULTS);
   }
@@ -251,7 +272,7 @@
 
   Object.assign(ABX, {
     armConfirm, showExport,
-    SETTINGS_KEY: KEY, WD, ROLES, SERVICE_ROLES, DEFAULTS, clone, merge,
+    SETTINGS_KEY: KEY, WD, ROLES, SERVICE_ROLES, B1_ROLES, DEFAULTS, clone, merge,
     loadSettings: load, saveSettings: save, resetSettings: resetSaved,
     parseHM, parseTimes, pad, fmtHM, fmtHMS, fmtDur, fmtMoney,
   });

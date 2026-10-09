@@ -392,8 +392,8 @@
   function exportCsv() {
     const R = ABX.S.reports.slice().reverse();
     const codes = settings.services.map((s) => s.code);
-    const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '臨時事件', '阻詐金額', '客訴', '請假人次', '代班人次', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'].concat(codes.map((c) => '業務' + c));
-    const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.incidents || 0, r.fraudStopped || 0, r.complaints || 0, r.leaves || 0, r.subs || 0, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)].concat(codes.map((c) => r.svc[c] || 0)));
+    const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '臨時事件', '阻詐金額', '客訴', '請假人次', '代班人次', '現金調撥', '文件歸檔', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'].concat(codes.map((c) => '業務' + c));
+    const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.incidents || 0, r.fraudStopped || 0, r.complaints || 0, r.leaves || 0, r.subs || 0, r.cashMoves || 0, r.archived || 0, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)].concat(codes.map((c) => r.svc[c] || 0)));
     const csv = '﻿' + [head].concat(rows).map((x) => x.join(',')).join('\n');
     ABX.showExport('每日營運報表（CSV）', csv, 'autobank-x-report.csv', 'text/csv');
   }
