@@ -332,7 +332,8 @@
     for (const p of S.points) {
       if (p.floor !== floor) continue;
       const w = p.kind === 'counter' ? 46 : 58;
-      if (p.current) sign(ctx, p.signX, p.signY, w, p.current.no, '#0f172a', p.current.status === 'serving' ? '#4ade80' : '#facc15');
+      if ((D.sysDown || D.powerOut) && !p.current) sign(ctx, p.signX, p.signY, w, '系統異常', '#991b1b', '#fff');
+      else if (p.current) sign(ctx, p.signX, p.signY, w, p.current.no, '#0f172a', p.current.status === 'serving' ? '#4ade80' : '#facc15');
       else if (p.open) sign(ctx, p.signX, p.signY, w, '請稍候', '#0f172a', '#93c5fd');
       else sign(ctx, p.signX, p.signY, w, p.staff && p.staff.label === '午休用餐' ? '休息中' : '暫停服務', '#7f1d1d', '#fecaca');
       if (p.kind === 'counter') { rr(ctx, p.signX - 36, p.signY - 6, 11, 12, 2); ctx.fillStyle = '#fff'; ctx.fill(); text(ctx, p.short, p.signX - 30.5, p.signY + 0.5, 8, '#1e293b', 'center', '800'); }
@@ -348,12 +349,20 @@
       ctx.strokeStyle = open ? '#22c55e' : '#ef4444'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(40, open ? 312 : 314); ctx.lineTo(40, open ? 318 : 346); ctx.moveTo(40, open ? 342 : 346); ctx.lineTo(40, 348); ctx.stroke();
       ctx.save(); ctx.translate(14, 300); text(ctx, open ? '營業中' : '休息', 0, 0, 8, open ? '#15803d' : '#b91c1c', 'center', '800'); ctx.restore();
-      for (const m of L.atms) { ctx.fillStyle = m.user ? '#f59e0b' : '#22c55e'; ctx.beginPath(); ctx.arc(m.x + 9, 40, 2.4, 0, 7); ctx.fill(); }
+      for (const m of L.atms) {
+        ctx.fillStyle = m.broken || D.powerOut ? '#ef4444' : m.user ? '#f59e0b' : '#22c55e'; ctx.beginPath(); ctx.arc(m.x + 9, 40, 2.4, 0, 7); ctx.fill();
+        if (m.broken || D.powerOut) { ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(m.x - 9, m.y - 9); ctx.lineTo(m.x + 9, m.y + 9); ctx.moveTo(m.x + 9, m.y - 9); ctx.lineTo(m.x - 9, m.y + 9); ctx.stroke(); }
+      }
+      if (D.kioskDown || D.powerOut) sign(ctx, 205, 125, 52, '暫停取號', '#991b1b', '#fff');
       const c = D.calls[0];
       text(ctx, '叫號看板', 748, 147, 7, '#94a3b8', 'left');
       text(ctx, c ? `${c.no} → ${c.label}` : '— 尚未叫號 —', 845, 160, 12, '#fde047', 'center', '800');
       // 運鈔車
       if (S.agents.some((a) => a.role === 'crew')) drawTruck(ctx, 20, 385);
+      const veh = new Set(S.agents.filter((a) => a.vehicle).map((a) => a.vehicle));
+      if (veh.has('ambulance')) drawTruck(ctx, 20, 230, '#f8fafc', '#dc2626', true);
+      if (veh.has('police')) drawTruck(ctx, 20, 150, '#1e3a8a', '#f8fafc', true);
+      if (veh.has('van')) drawTruck(ctx, 20, 60, '#e5e7eb', '#f97316');
     }
     if (floor === 2) {
       const c = D.calls.find((x) => x.floor === 2);
@@ -385,14 +394,42 @@
     }
   }
 
-  function drawTruck(ctx, x, y) {
+  function drawTruck(ctx, x, y, body = '#14532d', stripe = '#facc15', siren = false) {
     ctx.save(); ctx.translate(x, y);
     ctx.fillStyle = 'rgba(15,23,42,.2)'; rr(ctx, -15, -33, 32, 70, 5); ctx.fill();
-    ctx.fillStyle = '#14532d'; rr(ctx, -16, -34, 32, 68, 5); ctx.fill();
-    ctx.fillStyle = '#166534'; ctx.fillRect(-13, -8, 26, 38);
+    ctx.fillStyle = body; rr(ctx, -16, -34, 32, 68, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.fillStyle = '#7dd3fc'; rr(ctx, -12, -30, 24, 10, 2); ctx.fill();
-    ctx.fillStyle = '#facc15'; ctx.fillRect(-13, 8, 26, 3);
+    ctx.fillStyle = stripe; ctx.fillRect(-16, 8, 32, 4);
+    if (siren) {
+      const on = Math.floor(performance.now() / 300) % 2;
+      ctx.fillStyle = on ? '#ef4444' : '#3b82f6'; ctx.fillRect(-10, -18, 8, 4);
+      ctx.fillStyle = on ? '#3b82f6' : '#ef4444'; ctx.fillRect(2, -18, 8, 4);
+    }
     ctx.restore();
+  }
+
+  /* 臨時事件標記 */
+  function drawIncidents(ctx, floor) {
+    const S = ABX.S;
+    const pulse = (Math.sin(performance.now() / 260) + 1) / 2;
+    for (const inc of S.incidents || []) {
+      if (inc.status !== 'active' || inc.floor !== floor) continue;
+      const { x, y } = inc.where;
+      if (inc.puddle) {
+        ctx.fillStyle = 'rgba(56,189,248,.45)'; ctx.beginPath(); ctx.ellipse(x, y, 26, 14, 0.2, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(14,165,233,.35)'; ctx.beginPath(); ctx.ellipse(x + 10, y - 3, 10, 5, 0, 0, 7); ctx.fill();
+        for (let i = 0; i < 3; i++) { ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(x - 12 + i * 12, y - 26 + ((performance.now() / 8 + i * 30) % 22), 1.8, 0, 7); ctx.fill(); }
+      }
+      ctx.strokeStyle = `rgba(220,38,38,${0.35 + pulse * 0.5})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(x, y, 18 + pulse * 8, 0, 7); ctx.stroke();
+      ctx.font = `700 9px ${FONT}`;
+      const w = ctx.measureText(inc.name).width + 18;
+      const lx = Math.min(Math.max(x, w / 2 + 4), 996 - w / 2), ly = Math.max(y - 34, 14);
+      rr(ctx, lx - w / 2, ly - 8, w, 16, 8); ctx.fillStyle = '#dc2626'; ctx.fill();
+      text(ctx, '!', lx - w / 2 + 8, ly + 0.5, 10, '#fff', 'center', '900');
+      text(ctx, inc.name, lx + 5, ly + 0.5, 9, '#fff', 'center', '700');
+    }
   }
 
   function bubble(ctx, x, y, s, bg, fg) {
@@ -413,7 +450,11 @@
         ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(a.x + 14, a.y - 12); ctx.lineTo(a.x + 20, a.y - 1); ctx.lineTo(a.x + 8, a.y - 1); ctx.closePath(); ctx.fill();
         text(ctx, '!', a.x + 14, a.y - 4.5, 7, '#0f172a', 'center', '800');
       }
-      if (a.look) P.draw(ctx, a.x, a.y, a.dir || 0, a.look, {
+      if (a.sick) {
+        ctx.fillStyle = '#fff'; rr(ctx, a.x + 6, a.y - 22, 13, 13, 3); ctx.fill(); ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#dc2626'; ctx.fillRect(a.x + 11, a.y - 20, 3, 9); ctx.fillRect(a.x + 8, a.y - 17, 9, 3);
+      }
+      if (a.look) P.draw(ctx, a.x, a.y, a.sick ? 0.3 : a.dir || 0, a.look, {
         scale: isStaff || a.kind === 'visitor' ? 1 : 0.9, moving: a.moving, walk: a.walk,
         carry: (a.carry && a.carry.length) || (a.bag && a.bag.length), cashbox: a.cashbox,
       });
@@ -457,6 +498,18 @@
     }
   }
 
+  function emergency(ctx) {
+    const D = ABX.S.D;
+    if (D.powerOut) {
+      ctx.fillStyle = `rgba(2,6,23,${D.generator ? 0.28 : 0.5})`; ctx.fillRect(0, 0, 1000, 420);
+      text(ctx, D.generator ? '停電中・緊急發電機供電' : '停電中', 500, 22, 12, '#fde047', 'center', '800');
+    }
+    if (D.alarm && Math.floor(performance.now() / 400) % 2) {
+      ctx.strokeStyle = 'rgba(220,38,38,.85)'; ctx.lineWidth = 10; ctx.strokeRect(5, 5, 990, 410);
+      text(ctx, '火警警報', 500, 22, 12, '#dc2626', 'center', '900');
+    }
+  }
+
   function draw() {
     if (!ABX.S || !ABX.L) return;
     for (const v of views) {
@@ -469,8 +522,10 @@
       ctx.drawImage(v.cache, 0, 0);
       ctx.setTransform(v.scale, 0, 0, v.scale, 0, 0);
       drawDynamic(ctx, v.floor);
+      drawIncidents(ctx, v.floor);
       drawAgents(ctx, v.floor);
       lighting(ctx, v.floor);
+      emergency(ctx);
     }
   }
 
@@ -509,7 +564,7 @@
       html = `<b>${esc(a.name)}</b>（${ABX.ROLES[a.role].label}${lv ? '・' + lv.label : ''}）<br>特色：${esc(a.trait || '—')}<br>${esc(ABX.Sim.whereOf(a))}<br>狀態：${esc(a.label)}`;
       if (a.role === 'teller' && a.cash) html += `<br>櫃台現金：${ABX.fmtMoney(a.cash)}`;
       if (a.carry && a.carry.length) html += `<br>攜帶文件 ${a.carry.length} 件`;
-    } else if (a.kind === 'visitor') html = `<b>運鈔人員</b><br>${esc(a.label)}`;
+    } else if (a.kind === 'visitor') html = `<b>${esc(a.name)}</b>（外部人員）<br>${esc(a.label)}`;
     else if (a.atm) html = `<b>${esc(a.name)}</b><br>${esc(a.label)}`;
     else {
       const svc = ABX.Sim.svcOf(a.code);

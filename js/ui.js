@@ -127,6 +127,7 @@
     updatePoints();
     updateStats();
     updateDocs();
+    updateIncidents();
     UI.refreshStaff();
     if (S.logSeq !== lastLogSeq || force) { lastLogSeq = S.logSeq; renderLog(); }
     if (S.reports.length !== lastReports || force) { lastReports = S.reports.length; renderReports(); }
@@ -136,7 +137,10 @@
       const card = document.querySelector(`.floor-card[data-floor="${f}"] [data-count]`);
       if (card) card.innerHTML = `<b>${st}</b> 員工　<b>${cu}</b> 客戶`;
       const badge = document.querySelector(`[data-badge="${f}"]`);
-      if (badge) { badge.textContent = st + cu; badge.classList.toggle('zero', st + cu === 0); }
+      if (badge) {
+        badge.textContent = st + cu; badge.classList.toggle('zero', st + cu === 0);
+        badge.classList.toggle('alert', (S.incidents || []).some((i) => i.status === 'active' && i.floor === f));
+      }
     }
   }
 
@@ -156,6 +160,7 @@
       ['放棄離開', lost, `ATM 交易 ${st.atm}`, lost > 10 ? 'bad' : ''],
       ['在班員工', `${present}/${S.staff.length}`, `主管授權 ${st.approvals} 次`, ''],
       ['待送文件', pendingDocs, `已送總行 ${st.docsDelivered}`, ''],
+      ['臨時事件', ABX.Incidents.active().length, `今日 ${st.incidents} 件・排除 ${st.incResolved}`, ABX.Incidents.active().length ? 'bad' : ''],
       ['金庫庫存', (S.vaultCash / 10000).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' 萬', S.D.vaultOpen ? '金庫開啟中' : '金庫封閉', ''],
     ];
     $('kpis').innerHTML = tiles.map(([k, v, sub, cls]) => `<div class="kpi ${cls}"><span class="k">${k}</span><b>${v}</b><small>${sub}</small></div>`).join('');
@@ -250,6 +255,56 @@
     $('docList').innerHTML = recent.map((d) => `<div><span class="id">#${d.id}</span><span class="nm">${esc(d.name)}<small>${esc(d.from || '')}</small></span><span class="sg">${d.stage}</span></div>`).join('') || '<div class="muted">尚無文件</div>';
   }
 
+  /* ---------- 臨時事件 ---------- */
+  const SEV_CLASS = { low: 'sev-low', mid: 'sev-mid', high: 'sev-high' };
+  function incCard(inc) {
+    const I = ABX.Incidents, S = ABX.S;
+    const steps = inc.steps.map((st, i) => {
+      const cls = st.done ? 'done' : i === inc.cur ? 'now' : '';
+      let who = '';
+      if (st.done) who = st.by ? `${esc(st.by)}・${fmtHM(st.doneAt % 86400)}` : fmtHM(st.doneAt % 86400);
+      else if (i === inc.cur) {
+        if (st.roles) who = st.assignee ? `${esc(st.assignee.name)} 處理中` : '等待人員接手（' + st.roles.map((r) => ROLES[r].label).join('／') + '）';
+        else if (st.timer) who = `約 ${Math.max(0, Math.ceil((st.until - S.t) / 60))} 分鐘`;
+        else if (st.ext) who = st.spawned ? `${I.WHO[st.ext.who].name}處理中` : `${I.WHO[st.ext.who].name}約 ${Math.max(0, Math.ceil((st.arriveAt - S.t) / 60))} 分鐘到場`;
+      }
+      return `<li class="${cls}"><span class="st">${esc(st.label)}</span><span class="who">${who}</span></li>`;
+    }).join('');
+    return `<div class="inc ${SEV_CLASS[inc.sev]}" data-floor="${inc.floor}">
+      <div class="inc-head"><span class="sev">${I.SEV[inc.sev]}</span><b>${esc(inc.name)}</b>${inc.drill ? '<span class="drill-tag">演練</span>' : ''}<span class="inc-loc">${ABX.Layout.FLOOR_SHORT[inc.floor]}</span><span class="inc-time">${fmtDur(S.t - inc.startedAt)}</span></div>
+      <div class="inc-detail">${esc(inc.detail)}</div><ol class="steps">${steps}</ol></div>`;
+  }
+  function updateIncidents() {
+    const S = ABX.S, list = S.incidents || [];
+    const act = list.filter((i) => i.status === 'active');
+    $('incBadge').textContent = act.length || '';
+    $('incBadge').classList.toggle('alert', act.length > 0);
+    const html = act.length ? act.map(incCard).join('') : '<div class="inc-empty">目前沒有臨時事件，分行運作正常。</div>';
+    if ($('incActive')._html !== html) { $('incActive').innerHTML = html; $('incActive')._html = html; }
+    const today = Math.floor(S.t / 86400);
+    const done = list.filter((i) => i.status === 'resolved' && Math.floor(i.resolvedAt / 86400) === today);
+    const dh = done.length ? done.map((i) => `<div><span class="t">${fmtHM(i.startedAt % 86400)}</span><span class="sev-dot ${SEV_CLASS[i.sev]}"></span><span class="nm">${esc(i.name)}</span><span class="dur">${Math.round((i.resolvedAt - i.startedAt) / 60)} 分</span></div>`).join('') : '<div class="muted">尚無</div>';
+    if ($('incDone')._html !== dh) { $('incDone').innerHTML = dh; $('incDone')._html = dh; }
+  }
+  function buildDrill() {
+    const D = ABX.Incidents.DEFS;
+    $('drillType').innerHTML = Object.entries(D).map(([k, d]) => `<option value="${k}">${d.name}</option>`).join('');
+  }
+  function toast(html, cls, floor) {
+    const box = $('toasts');
+    const el = document.createElement('button');
+    el.className = 'toast-card ' + (cls || '');
+    el.innerHTML = html;
+    el.onclick = () => { if (floor !== undefined) setFloorView(String(floor)); el.remove(); };
+    box.prepend(el);
+    while (box.children.length > 4) box.lastChild.remove();
+    setTimeout(() => el.remove(), 7000);
+  }
+  ABX.onIncident = function (inc, kind) {
+    if (kind === 'new') toast(`<b>${esc(inc.name)}</b><span>${esc(inc.detail)}</span><small>${ABX.Layout.FLOOR_SHORT[inc.floor]}・點此查看樓層</small>`, 'new ' + SEV_CLASS[inc.sev], inc.floor);
+    else toast(`<b>已排除：${esc(inc.name)}</b><small>處理 ${Math.round((inc.resolvedAt - inc.startedAt) / 60)} 分鐘</small>`, 'ok');
+  };
+
   UI.refreshStaff = function () {
     const S = ABX.S;
     const q = $('staffSearch').value.trim(), role = $('staffRole').value, fl = $('staffFloor').value;
@@ -288,15 +343,15 @@
   function renderReports() {
     const R = ABX.S.reports;
     const tb = $('reportTable').tBodies[0];
-    if (!R.length) { tb.innerHTML = '<tr><td colspan="15" class="muted">每日 24:00 結算後顯示</td></tr>'; return; }
-    tb.innerHTML = R.map((r) => `<tr class="${r.open ? '' : 'away'}"><td>Day ${r.day}（${WD[r.wd]}）${r.open ? '' : ' 休'}</td><td>${r.arrived}</td><td>${r.served}</td><td>${r.abandoned + r.turnedAway}</td><td>${r.waitN ? fmtDur(r.avgWait) : '—'}</td><td>${r.waitMax ? fmtDur(r.waitMax) : '—'}</td><td>${r.atm}</td><td>${r.docsCreated}</td><td>${r.docsDelivered}</td><td>${r.trips}</td><td>${r.cashTransport}</td><td>${r.approvals}</td><td>${r.overtime}</td><td>${r.lastLeave === null ? '—' : fmtHM(r.lastLeave % 86400)}</td><td>${fmtMoney(r.vault)}</td></tr>`).join('');
+    if (!R.length) { tb.innerHTML = '<tr><td colspan="17" class="muted">每日 24:00 結算後顯示</td></tr>'; return; }
+    tb.innerHTML = R.map((r) => `<tr class="${r.open ? '' : 'away'}"><td>Day ${r.day}（${WD[r.wd]}）${r.open ? '' : ' 休'}</td><td>${r.arrived}</td><td>${r.served}</td><td>${r.abandoned + r.turnedAway}</td><td>${r.waitN ? fmtDur(r.avgWait) : '—'}</td><td>${r.waitMax ? fmtDur(r.waitMax) : '—'}</td><td>${r.atm}</td><td>${r.docsCreated}</td><td>${r.docsDelivered}</td><td>${r.trips}</td><td>${r.cashTransport}</td><td>${r.approvals}</td><td>${r.incidents || 0}</td><td>${r.fraudStopped ? fmtMoney(r.fraudStopped) : '—'}</td><td>${r.overtime}</td><td>${r.lastLeave === null ? '—' : fmtHM(r.lastLeave % 86400)}</td><td>${fmtMoney(r.vault)}</td></tr>`).join('');
   }
 
   function exportCsv() {
     const R = ABX.S.reports.slice().reverse();
     const codes = settings.services.map((s) => s.code);
-    const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'].concat(codes.map((c) => '業務' + c));
-    const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)].concat(codes.map((c) => r.svc[c] || 0)));
+    const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '臨時事件', '阻詐金額', '客訴', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'].concat(codes.map((c) => '業務' + c));
+    const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.incidents || 0, r.fraudStopped || 0, r.complaints || 0, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)].concat(codes.map((c) => r.svc[c] || 0)));
     const csv = '﻿' + [head].concat(rows).map((x) => x.join(',')).join('\n');
     ABX.showExport('每日營運報表（CSV）', csv, 'autobank-x-report.csv', 'text/csv');
   }
@@ -374,6 +429,12 @@
     };
     ABX.armConfirm($('btnReset'), '再按一次確認', () => { setRunning(false); start(); });
     bindTabs();
+    buildDrill();
+    $('btnDrill').onclick = () => {
+      const msg = ABX.Incidents.trigger($('drillType').value);
+      $('drillMsg').textContent = msg || '已觸發';
+      updateUI();
+    };
     $('logFilter').onchange = renderLog;
     $('btnCsv').onclick = exportCsv;
     for (const id of ['staffSearch', 'staffRole', 'staffFloor']) $(id).addEventListener('input', () => UI.refreshStaff());

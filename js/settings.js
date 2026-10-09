@@ -95,6 +95,16 @@
       transportSaturday: '10:30',
       discrepancyProb: 4,
     },
+    incidents: {
+      enabled: true,
+      multiplier: 1,
+      // 隨機事件：rate = 每個營業日平均次數；臨櫃觸發事件：rate = 觸發機率 %
+      types: {
+        atm: { on: true, rate: 0.6 }, kiosk: { on: true, rate: 0.4 }, system: { on: true, rate: 0.25 }, power: { on: true, rate: 0.08 },
+        medical: { on: true, rate: 0.25 }, leak: { on: true, rate: 0.2 }, alarm: { on: true, rate: 0.1 },
+        fraud: { on: true, rate: 6 }, counterfeit: { on: true, rate: 1.5 }, complaint: { on: true, rate: 20 },
+      },
+    },
     staff: [
       { name: '林志明', role: 'manager' },
       { name: '陳美玲', role: 'supervisor' },

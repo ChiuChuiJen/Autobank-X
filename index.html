@@ -82,9 +82,21 @@
             <button class="subtab active" data-tab="points">服務窗口</button>
             <button class="subtab" data-tab="stats">今日統計</button>
             <button class="subtab" data-tab="docs">送件流程</button>
+            <button class="subtab" data-tab="incidents">臨時事件 <span id="incBadge" class="badge"></span></button>
           </div>
           <div class="tabpane" data-pane="points"><div id="points" class="points"></div></div>
           <div class="tabpane" data-pane="stats" hidden><div id="stats"></div></div>
+          <div class="tabpane" data-pane="incidents" hidden>
+            <div class="drill">
+              <label for="drillType">事件演練</label>
+              <select id="drillType"></select>
+              <button id="btnDrill" class="btn small primary">觸發</button>
+              <span id="drillMsg" class="drill-msg"></span>
+            </div>
+            <div id="incActive" class="inc-list"></div>
+            <h4 class="inc-sub">今日已排除</h4>
+            <div id="incDone" class="inc-done"></div>
+          </div>
           <div class="tabpane" data-pane="docs" hidden>
             <div id="pipeline" class="pipeline"></div>
             <div id="docList" class="doc-list"></div>
@@ -111,7 +123,7 @@
           <select id="logFilter">
             <option value="">全部分類</option>
             <option>叫號</option><option>櫃檯</option><option>客戶</option><option>員工</option>
-            <option>送件</option><option>金庫</option><option>盤點</option><option>保全</option><option>系統</option>
+            <option>事件</option><option>送件</option><option>金庫</option><option>盤點</option><option>保全</option><option>系統</option>
           </select>
         </div>
         <div class="tools" data-tools="reports" hidden>
@@ -127,7 +139,7 @@
       <div class="tabpane" data-pane="log" hidden><div id="log" class="log"></div></div>
       <div class="tabpane" data-pane="reports" hidden>
         <div class="table-wrap"><table class="table" id="reportTable">
-          <thead><tr><th>日期</th><th>來客</th><th>完成</th><th>放棄</th><th>平均等候</th><th>最長等候</th><th>ATM</th><th>產生文件</th><th>送達總行</th><th>送件趟數</th><th>運鈔</th><th>主管授權</th><th>加班人次</th><th>最後離開</th><th>金庫庫存</th></tr></thead>
+          <thead><tr><th>日期</th><th>來客</th><th>完成</th><th>放棄</th><th>平均等候</th><th>最長等候</th><th>ATM</th><th>產生文件</th><th>送達總行</th><th>送件趟數</th><th>運鈔</th><th>主管授權</th><th>臨時事件</th><th>阻詐金額</th><th>加班人次</th><th>最後離開</th><th>金庫庫存</th></tr></thead>
           <tbody></tbody>
         </table></div>
       </div>
@@ -137,11 +149,13 @@
   </div>
 
   <div id="tooltip" class="tooltip" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 
   <script src="js/settings.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/people.js"></script>
   <script src="js/sim.js"></script>
+  <script src="js/incidents.js"></script>
   <script src="js/render.js"></script>
   <script src="js/ui.js"></script>
 </body>

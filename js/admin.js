@@ -121,6 +121,16 @@
       ${field('後勤審核最長（分）', input('backoffice.reviewMaxMin', 'number', 'min="1"'))}
     </div>`);
 
+    const IDEF = ABX.Incidents.DEFS;
+    html += section('臨時事件', '開啟後會隨機發生突發狀況，由對應職務依序執行排除動作（必要時通報外部廠商、救護、警察）。隨機事件以「每個營業日平均次數」計，臨櫃觸發事件以「觸發機率 %」計。模擬頁的「臨時事件」分頁也可手動觸發演練。', `<div class="form-grid">
+      ${field('啟用臨時事件', input('incidents.enabled', 'check'), true)}
+      ${field('整體頻率倍率', input('incidents.multiplier', 'number', 'min="0"'))}
+    </div><div class="scroll-x"><table class="tbl" style="margin-top:10px">
+      <thead><tr><th>啟用</th><th>事件</th><th>頻率</th><th>單位</th><th>排除流程</th></tr></thead>
+      <tbody>${Object.entries(IDEF).map(([k, d]) => `<tr><td>${input(`incidents.types.${k}.on`, 'check')}</td><td>${esc(d.name)}</td>
+        <td>${input(`incidents.types.${k}.rate`, 'number', 'class="w-s" min="0"')}</td><td class="muted">${esc(d.unit)}</td><td class="muted">${esc(d.who)}</td></tr>`).join('')}</tbody>
+    </table></div>`);
+
     html += section('現金與金庫', '金庫由櫃檯主管與經理雙人控管開啟／封存。櫃員開櫃前領取現金箱，盤點後繳回。運鈔車依時間到店，保全戒護、主管交接。', `<div class="form-grid">
       ${field('金庫初始現金', input('cash.vaultInitial', 'number', 'min="0"'))}
       ${field('金庫目標庫存（運鈔調撥依據）', input('cash.vaultTarget', 'number', 'min="0"'))}

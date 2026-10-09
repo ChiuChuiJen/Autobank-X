@@ -36,6 +36,10 @@
     corporate:  { outfit: '#334155', trim: '#93c5fd', acc: 'tie' },
     vip:        { outfit: '#450a0a', trim: '#facc15', acc: 'tie' },
     audit:      { outfit: '#4c1d95', trim: '#e9d5ff', acc: 'lanyard' },
+    tech:       { outfit: '#c2410c', trim: '#fde68a', acc: 'bag' },
+    paramedic:  { outfit: '#f8fafc', trim: '#dc2626', acc: 'sash' },
+    police:     { outfit: '#1e3a8a', trim: '#facc15', acc: 'cap' },
+    plumber:    { outfit: '#1d4ed8', trim: '#f97316', acc: 'apron' },
   };
 
   const LEVELS = {

@@ -133,6 +133,7 @@
     S = ABX.S = {
       settings, t: 0, nextId: 0, docSeq: 0, logSeq: 0, agents: [], staff: [], points: [], docs: [], log: [], reports: [],
       vaultCash: +settings.cash.vaultInitial || 0, rand: mulberry32(seed), D: null, highlight: null,
+      incidents: [], incSeq: 0, forceNext: {},
     };
     const counts = { atm: +settings.customers.atmCount || 3 };
     for (const st of settings.staff) counts[st.role] = (counts[st.role] || 0) + 1;
@@ -193,7 +194,7 @@
   function newStats() {
     return { arrived: 0, served: 0, abandoned: 0, turnedAway: 0, noshow: 0, atm: 0, waitSum: 0, waitN: 0, waitMax: 0, svc: {},
       docsCreated: 0, docsDelivered: 0, inbound: 0, cashIn: 0, cashOut: 0, cashTransport: 0, approvals: 0, discrepancies: 0,
-      overtime: 0, trips: 0, lastLeave: null, firstArrive: null };
+      overtime: 0, trips: 0, lastLeave: null, firstArrive: null, incidents: 0, incResolved: 0, fraudStopped: 0, complaints: 0 };
   }
 
   function newDay(d) {
@@ -294,6 +295,7 @@
       }
       a.didMeeting = true;
     }
+    if (ABX.Incidents && ABX.Incidents.decide(a, t, h)) return;
     (a.noDesk ? supportDecide : DECIDE[a.role] || idle)(a, t, h);
   }
 
@@ -347,6 +349,7 @@
     if (a.closing) { later(a, T.wait(30, a.closingDone ? (t >= h.end ? '準備下班' : '整理文件・待命') : '盤點作業')); return; }
     if (lunchDue(a) && !p.current) { goLunch(a); return; }
     if (t < h.start) { p.open = false; later(a, T.wait(20, '準備開櫃')); return; }
+    if (S.D.sysDown || S.D.powerOut) { p.open = false; later(a, T.wait(15, S.D.powerOut ? '停電・暫停交易' : '系統斷線・暫停交易')); return; }
     p.open = true;
     if (callNext(a, p)) return;
     if (t >= h.last && !pendingFor(p)) { startClosing(a, p); return; }
@@ -355,7 +358,8 @@
 
   function callNext(a, p) {
     let tk = null;
-    for (const code of p.services) { tk = S.D.tickets.find((x) => x.status === 'waiting' && x.code === code); if (tk) break; }
+    tk = S.D.tickets.find((x) => x.status === 'waiting' && x.priority && p.services.includes(x.code));   // 客訴後優先辦理
+    if (!tk) for (const code of p.services) { tk = S.D.tickets.find((x) => x.status === 'waiting' && x.code === code); if (tk) break; }
     if (!tk) return false;
     tk.status = 'called'; tk.point = p; tk.calledAt = S.t; tk.calls = 1;
     p.current = tk;
@@ -394,7 +398,9 @@
     const needAppr = a.role === 'teller' && rnd() * 100 < +svc.approvalProb * lv.appr;
     const label = `服務 ${tk.no}・${svc.name}`;
     c.label = `辦理 ${svc.name}`;
-    const seq = [T.wait(dur * (needAppr ? 0.6 : 1), label)];
+    const inj = ABX.Incidents ? ABX.Incidents.onServiceStart(a, p, tk, svc) : null;
+    if (inj && inj.noCash) tk.fraud = true;
+    const seq = (inj ? inj.tasks : []).concat([T.wait(dur * (needAppr ? 0.6 : 1) * (tk.fraud ? 0.3 : 1), label)]);
     if (needAppr) {
       const req = { p, a, kind: '授權', dur: R(60, 150), done: false, taken: false };
       seq.push(T.do(() => { D.approvals.push(req); log('櫃檯', `${p.label} ${tk.no} 交易需主管授權`); }),
@@ -410,7 +416,7 @@
     tk.status = 'done'; tk.endAt = S.t; c.served = true;
     D.stats.served++;
     D.stats.svc[tk.code] = (D.stats.svc[tk.code] || 0) + 1;
-    if (a.role === 'teller' && (tk.code === 'A' || tk.code === 'B')) {
+    if (a.role === 'teller' && !tk.fraud && (tk.code === 'A' || tk.code === 'B')) {
       const amt = Math.round(Math.exp(Math.log(20000) + 0.9 * gauss()) / 100) * 100 * (big ? 10 : 1);
       if (tk.code === 'A' && rnd() < 0.5) { a.cash += amt; D.stats.cashIn += amt; }
       else { const out = Math.min(amt, Math.max(0, a.cash - 50000)); a.cash -= out; D.stats.cashOut += out; }
@@ -810,7 +816,7 @@
       D.guideReq.push(req);
       later(c, T.go(jit(L.spots.guideCust, 10), '詢問大堂經理'), T.until(() => req.done, '向大堂經理詢問', 240, () => { req.done = true; }));
     }
-    later(c, T.go(jit(L.spots.ticket, 8), '前往取號機'), T.wait(R(6, 15), '取號'), T.do(() => issueTicket(c)));
+    later(c, T.go(jit(L.spots.ticket, 8), '前往取號機'), T.wait(R(6, 15) * (D.kioskDown || D.powerOut ? 5 : 1), D.kioskDown || D.powerOut ? '取號機故障・人工發號' : '取號'), T.do(() => issueTicket(c)));
   }
 
   function issueTicket(c) {
@@ -836,6 +842,12 @@
       T.do(() => respond(c, tk)));
   }
 
+  function waitForCall(c, tk, dest, label) {
+    later(c, T.go(dest, label || '回到等候區'),
+      T.until(() => tk.status === 'called' || S.t - tk.issuedAt > c.patience, '等候叫號 ' + tk.no),
+      T.do(() => respond(c, tk)));
+  }
+
   function freeSeat(c) { if (c.seat) { c.seat.occ = null; c.seat = null; } }
 
   function respond(c, tk) {
@@ -848,6 +860,7 @@
         T.do(() => { c.atPoint = null; leave(c); }));
       return;
     }
+    if (ABX.Incidents && ABX.Incidents.onAbandon(c, tk)) return;
     tk.status = 'abandoned';
     S.D.stats.abandoned++;
     log('客戶', `${tk.no} 號等候過久（${Math.round((S.t - tk.issuedAt) / 60)} 分），放棄離開`);
@@ -863,9 +876,9 @@
     const c = mkAgent({ kind: 'customer', atm: true, name: 'ATM 客戶（' + persona.label + '）', persona, look: ABX.People.customerLook(persona, rnd), color: '#64748b',
       floor: 1, x: L.spots.street.x, y: 100 + R(-30, 30), speed: R(22, 28) * persona.speed, label: '前往 ATM' });
     later(c, T.go(jit(L.spots.atmQueue, 18), '前往 ATM'),
-      T.until(() => L.atms.some((m) => !m.user), '排隊等候 ATM', 600),
+      T.until(() => !S.D.powerOut && L.atms.some((m) => !m.user && !m.broken), '排隊等候 ATM', 600),
       T.do(() => {
-        const m = L.atms.find((x) => !x.user);
+        const m = S.D.powerOut ? null : L.atms.find((x) => !x.user && !x.broken);
         if (!m) { now(c, T.go({ floor: 1, x: 15, y: 100 }, '離開'), T.do(() => { c.dead = true; })); return; }
         m.user = c;
         now(c, T.go(m.spot, '前往 ATM'), T.wait(R(70, 240), 'ATM 交易中'),
@@ -916,6 +929,7 @@
     const d = Math.floor(S.t / DAY);
     if (d !== S.D.d) newDay(d);
     globalEvents(dt);
+    if (ABX.Incidents) ABX.Incidents.tick(dt);
     for (let i = 0; i < S.agents.length; i++) runAgent(S.agents[i], dt);
     if (S.agents.some((a) => a.dead)) S.agents = S.agents.filter((a) => !a.dead);
   }
@@ -941,5 +955,10 @@
 
   Object.assign(ABX, {
     Sim: { reset, advance, phaseInfo, whereOf, svcOf, docsIn, customersInside, hoursOf, DAY },
+    // 給臨時事件模組使用的內部工具
+    SimCore: {
+      T, now, later, mkAgent, log, R, pick, rnd, jit, atSpot, staffOf, onDuty, tod, createDoc, leave, freeSeat, waitForCall,
+      get S() { return S; }, get L() { return L; },
+    },
   });
 })();
