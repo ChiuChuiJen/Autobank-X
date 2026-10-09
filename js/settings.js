@@ -95,6 +95,19 @@
       transportSaturday: '10:30',
       discrepancyProb: 4,
     },
+    schedule: {
+      satRotation: true,     // 週六同職務兩人以上者隔週輪值
+      sickProb: 2,           // 每人每日臨時病假機率（%）
+      substitute: true,      // 請假時自動安排代班
+      dispatch: true,        // 找不到內部代班時，由鄰近分行派員支援
+      // 預排假單：day = 模擬第幾天（Day N），part = full 全天／am 上午／pm 下午
+      leaves: [
+        { name: '李佳穎', day: 2, type: '特休', part: 'full' },
+        { name: '許雅婷', day: 3, type: '事假', part: 'pm' },
+        { name: '陳美玲', day: 4, type: '特休', part: 'full' },
+        { name: '楊大同', day: 5, type: '病假', part: 'full' },
+      ],
+    },
     incidents: {
       enabled: true,
       multiplier: 1,
@@ -121,12 +134,12 @@
       { name: '鄭志偉', role: 'advisor', services: 'D' },
       { name: '謝明哲', role: 'loan', services: 'E' },
       { name: '郭佩珊', role: 'loan', services: 'E' },
-      { name: '游建國', role: 'corporate', services: 'IE' },
-      { name: '沈若晴', role: 'vip', services: 'VD' },
+      { name: '游建國', role: 'corporate', services: 'IE' , days: '12345' },
+      { name: '沈若晴', role: 'vip', services: 'VD' , days: '12345' },
       { name: '杜文雄', role: 'safebox', services: 'H' },
       { name: '洪嘉玲', role: 'backoffice' },
       { name: '曾建宏', role: 'backoffice' },
-      { name: '葉淑惠', role: 'audit' },
+      { name: '葉淑惠', role: 'audit' , days: '12345' },
       { name: '周文彬', role: 'courier' },
       { name: '楊大同', role: 'security' },
       { name: '林秀英', role: 'cleaner' },

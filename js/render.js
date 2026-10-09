@@ -562,6 +562,10 @@
     if (a.kind === 'staff') {
       const lv = ABX.People.LEVELS[a.level];
       html = `<b>${esc(a.name)}</b>（${ABX.ROLES[a.role].label}${lv ? '・' + lv.label : ''}）<br>特色：${esc(a.trait || '—')}<br>${esc(ABX.Sim.whereOf(a))}<br>狀態：${esc(a.label)}`;
+      if (a.temp) html += `<br>鄰近分行支援（代 ${esc(a.acting)}）`;
+      else if (a.acting) html += `<br>代班：代理 ${esc(a.acting)} 的職務`;
+      else if (a.callIn) html += '<br>週六調班';
+      if (a.leave && a.leave.part !== 'full') html += `<br>今日${esc(a.leave.type)}（${ABX.Roster.PARTS[a.leave.part]}）`;
       if (a.role === 'teller' && a.cash) html += `<br>櫃台現金：${ABX.fmtMoney(a.cash)}`;
       if (a.carry && a.carry.length) html += `<br>攜帶文件 ${a.carry.length} 件`;
     } else if (a.kind === 'visitor') html = `<b>${esc(a.name)}</b>（外部人員）<br>${esc(a.label)}`;

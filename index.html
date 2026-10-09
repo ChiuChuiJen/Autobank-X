@@ -109,6 +109,7 @@
       <div class="bottom-head">
         <div class="subtabs" role="tablist" data-group="bottom">
           <button class="subtab active" data-tab="staff">員工動態 <span id="staffCount" class="badge"></span></button>
+          <button class="subtab" data-tab="roster">排班表 <span id="rosterBadge" class="badge"></span></button>
           <button class="subtab" data-tab="log">事件紀錄</button>
           <button class="subtab" data-tab="reports">每日報表</button>
         </div>
@@ -116,14 +117,14 @@
           <input id="staffSearch" type="search" placeholder="搜尋姓名或作業">
           <select id="staffRole"><option value="">全部職務</option></select>
           <select id="staffFloor">
-            <option value="">全部樓層</option><option value="1">1F</option><option value="2">2F</option><option value="3">3F</option><option value="-1">B1</option><option value="off">外出／未在班</option>
+            <option value="">全部樓層</option><option value="1">1F</option><option value="2">2F</option><option value="3">3F</option><option value="-1">B1</option><option value="off">外出／未在班</option><option value="leave">請假／排休</option>
           </select>
         </div>
         <div class="tools" data-tools="log" hidden>
           <select id="logFilter">
             <option value="">全部分類</option>
             <option>叫號</option><option>櫃檯</option><option>客戶</option><option>員工</option>
-            <option>事件</option><option>送件</option><option>金庫</option><option>盤點</option><option>保全</option><option>系統</option>
+            <option>事件</option><option>排班</option><option>送件</option><option>金庫</option><option>盤點</option><option>保全</option><option>系統</option>
           </select>
         </div>
         <div class="tools" data-tools="reports" hidden>
@@ -136,10 +137,20 @@
           <tbody></tbody>
         </table></div>
       </div>
+      <div class="tabpane" data-pane="roster" hidden>
+        <div id="rosterSummary" class="roster-summary"></div>
+        <div class="table-wrap roster-wrap"><table class="roster" id="rosterTable"></table></div>
+        <div class="roster-legend">
+          <span><i class="rc work">班</i>上班</span><span><i class="rc off">休</i>排休／輪休</span><span><i class="rc leave">特休</i>請假（上／下＝半天）</span>
+          <span><i class="rc sub">代班</i>代理他人職務</span><span><i class="rc callin">調班</i>週六調班</span><span><i class="rc temp">支援</i>鄰近分行派員</span>
+          <span class="muted">點今天或之後的格子可以請假或取消請假</span>
+        </div>
+        <div id="leaveMenu" class="leave-menu" hidden></div>
+      </div>
       <div class="tabpane" data-pane="log" hidden><div id="log" class="log"></div></div>
       <div class="tabpane" data-pane="reports" hidden>
         <div class="table-wrap"><table class="table" id="reportTable">
-          <thead><tr><th>日期</th><th>來客</th><th>完成</th><th>放棄</th><th>平均等候</th><th>最長等候</th><th>ATM</th><th>產生文件</th><th>送達總行</th><th>送件趟數</th><th>運鈔</th><th>主管授權</th><th>臨時事件</th><th>阻詐金額</th><th>加班人次</th><th>最後離開</th><th>金庫庫存</th></tr></thead>
+          <thead><tr><th>日期</th><th>來客</th><th>完成</th><th>放棄</th><th>平均等候</th><th>最長等候</th><th>ATM</th><th>產生文件</th><th>送達總行</th><th>送件趟數</th><th>運鈔</th><th>主管授權</th><th>臨時事件</th><th>阻詐金額</th><th>請假／代班</th><th>加班人次</th><th>最後離開</th><th>金庫庫存</th></tr></thead>
           <tbody></tbody>
         </table></div>
       </div>
@@ -156,6 +167,7 @@
   <script src="js/people.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/incidents.js"></script>
+  <script src="js/roster.js"></script>
   <script src="js/render.js"></script>
   <script src="js/ui.js"></script>
 </body>

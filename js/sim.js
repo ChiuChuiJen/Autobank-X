@@ -159,7 +159,7 @@
       const sr = ABX.SERVICE_ROLES[a.role];
       const p = sr && L.points.find((q) => q.kind === sr.kind && q.idx === k);
       if (p) {
-        p.staff = a; p.services = String(cfg.services || '').toUpperCase().replace(/[^A-Z]/g, '').split('');
+        p.staff = a; p.owner = a; p.services = String(cfg.services || '').toUpperCase().replace(/[^A-Z]/g, '').split('');
         if (!p.services.length) p.services = [sr.def];
         p.open = false; p.current = null;
         a.point = p; a.station = p.staffSpot; a.vaultIdx = k % L.vaultSpots.length;
@@ -216,24 +216,31 @@
     for (const p of S.points) { p.open = false; p.current = null; }
 
     const lunchStart = parseHM(sr.lunchStart), lunchEnd = parseHM(sr.lunchEnd), lunchLen = Math.max(10, +sr.lunchMinutes) * 60;
-    const hasLunch = h.open && h.last >= lunchEnd && lunchEnd > lunchStart;
-    const slots = Math.max(1, Math.floor((lunchEnd - lunchStart) / lunchLen));
-    const off = { teller: 0, advisor: 1, loan: 2, backoffice: 0, supervisor: 0, manager: 2, guide: 1, courier: 1, cleaner: 3, digital: 2, safebox: 1, corporate: 3, vip: 0, audit: 2 };
+    S.D.dc = { lunchStart, lunchLen, hasLunch: h.open && h.last >= lunchEnd && lunchEnd > lunchStart, slots: Math.max(1, Math.floor((lunchEnd - lunchStart) / lunchLen)) };
+    if (ABX.Roster) ABX.Roster.restore();          // 還原昨日代班、移除支援人員
     for (const a of S.staff) {
       if (a.state !== 'home') { // 跨日仍未離開者強制下班
         a.floor = null; a.state = 'home'; a.tasks = []; a.cur = null; a.path = []; a.transfer = null; a.offsite = false; a.label = '已下班';
       }
-      const before = a.role === 'security' ? +sr.securityArriveBefore : a.role === 'cleaner' ? +sr.cleanerArriveBefore : +sr.arriveBefore;
-      Object.assign(a, {
-        arrivedToday: false, didMeeting: false, prepDone: false, lunchDone: false, closing: false, closingDone: false,
-        cashReturned: false, overtime: false, vaultOpenHelped: false, vaultCloseHelped: false, carry: [], bag: [],
-        arriveAt: h.start - before * 60 + R(-8, 3) * 60,
-        nextPatrol: h.start + R(20, 50) * 60,
-        lunchAt: hasLunch && a.role !== 'security' && off[a.role] !== undefined ? lunchStart + ((a.roleIdx + off[a.role]) % slots) * lunchLen : null,
-      });
+      resetDaily(a);
     }
+    if (ABX.Roster) ABX.Roster.planDay(d);         // 排班、請假與代班
     S.docs = S.docs.filter((x) => !(['已送達總行', '已歸檔'].includes(x.stage) && x.day < d));
     log('系統', `Day ${d + 1}（${WD[wd]}）${h.open ? `營業日 ${fmtHM(h.start)}～${fmtHM(h.last)} 收件，${fmtHM(h.end)} 下班` : '休假日（僅 ATM 服務）'}`);
+  }
+
+  const LUNCH_OFF = { teller: 0, advisor: 1, loan: 2, backoffice: 0, supervisor: 0, manager: 2, guide: 1, courier: 1, cleaner: 3, digital: 2, safebox: 1, corporate: 3, vip: 0, audit: 2 };
+  function resetDaily(a) {
+    const h = S.D.h, sr = S.settings.staffRules, dc = S.D.dc;
+    const before = a.role === 'security' ? +sr.securityArriveBefore : a.role === 'cleaner' ? +sr.cleanerArriveBefore : +sr.arriveBefore;
+    Object.assign(a, {
+      arrivedToday: false, didMeeting: false, prepDone: false, lunchDone: false, closing: false, closingDone: false,
+      cashReturned: false, overtime: false, vaultOpenHelped: false, vaultCloseHelped: false, carry: [], bag: [],
+      absent: false, leave: null, leaveAt: null, scheduled: true,
+      arriveAt: h.start - before * 60 + R(-8, 3) * 60,
+      nextPatrol: h.start + R(20, 50) * 60,
+      lunchAt: dc.hasLunch && a.role !== 'security' && LUNCH_OFF[a.role] !== undefined ? dc.lunchStart + ((a.roleIdx + LUNCH_OFF[a.role]) % dc.slots) * dc.lunchLen : null,
+    });
   }
 
   function finalizeDay() {
@@ -277,10 +284,11 @@
   function staffDecide(a) {
     const D = S.D, h = D.h, t = tod();
     if (a.state === 'home') {
-      if (h.open && !a.arrivedToday && t >= a.arriveAt && t < h.end) arrive(a);
+      if (h.open && !a.absent && !a.arrivedToday && t >= a.arriveAt && t < h.end) arrive(a);
       return;
     }
     if (a.state !== 'duty') return;
+    if (a.leaveAt !== null && a.leaveAt !== undefined && t >= a.leaveAt) { earlyLeave(a); return; }
     if (t >= h.end || !h.open) {
       if (a.closingDone || !h.open) { goHome(a); return; }
       if (!a.overtime) { a.overtime = true; D.stats.overtime++; log('員工', `${a.name}（${ROLES[a.role].label}）作業未完成，加班中`); }
@@ -311,7 +319,7 @@
     const D = S.D;
     a.arrivedToday = true; a.state = 'arriving';
     a.floor = 1; a.x = L.spots.street.x; a.y = L.spots.street.y + R(-25, 25);
-    later(a, T.go(L.lockers[a.lockerIdx], '到班進入分行'), T.wait(60, '換制服・打卡'), T.do(() => {
+    later(a, T.go(L.lockers[a.lockerIdx || 0], '到班進入分行'), T.wait(60, '換制服・打卡'), T.do(() => {
       a.state = 'duty';
       if (D.stats.firstArrive === null) D.stats.firstArrive = S.t;
       log('員工', `${a.name}（${ROLES[a.role].label}）到班打卡`);
@@ -319,10 +327,23 @@
     if (D.meetStart > tod() && a.meetIdx === 0) log('員工', `晨會預定 ${fmtHM(D.meetStart)} 於 3F 會議室舉行`);
   }
 
+  // 請假（下午）或臨時請假：交接後提早下班
+  function earlyLeave(a) {
+    a.leaveAt = null; a.closingDone = true; a.closing = true;
+    if (a.point) a.point.open = false;
+    const lab = a.leave ? a.leave.type : '請假';
+    log('排班', `${a.name}（${ROLES[a.role].label}）${lab}，交接後提早離開`);
+    if (a.role === 'teller' && a.cash > 0) {
+      later(a, T.go(L.vaultSpots[a.vaultIdx || 0], '繳回現金箱'), T.until(() => S.D.vaultOpen || S.D.vaultClosed, '等候金庫', 900), T.wait(120, '現金箱入庫・交接'),
+        T.do(() => { S.vaultCash += a.cash; a.cash = 0; a.cashReturned = true; }));
+    } else later(a, T.wait(120, '工作交接'));
+    later(a, T.do(() => goHome(a)));
+  }
+
   function goHome(a) {
     a.state = 'leaving';
     if (a.point) a.point.open = false;
-    later(a, T.go(L.lockers[a.lockerIdx], '前往更衣室'), T.wait(60, '換裝・打卡下班'), T.go(L.spots.street, '下班離開'), T.do(() => {
+    later(a, T.go(L.lockers[a.lockerIdx || 0], '前往更衣室'), T.wait(60, '換裝・打卡下班'), T.go(L.spots.street, '下班離開'), T.do(() => {
       a.floor = null; a.state = 'home'; a.label = '已下班';
       S.D.stats.lastLeave = S.t;
       log('員工', `${a.name}（${ROLES[a.role].label}）下班`);
@@ -957,7 +978,7 @@
     Sim: { reset, advance, phaseInfo, whereOf, svcOf, docsIn, customersInside, hoursOf, DAY },
     // 給臨時事件模組使用的內部工具
     SimCore: {
-      T, now, later, mkAgent, log, R, pick, rnd, jit, atSpot, staffOf, onDuty, tod, createDoc, leave, freeSeat, waitForCall,
+      T, now, later, mkAgent, log, R, pick, rnd, jit, atSpot, staffOf, onDuty, tod, createDoc, leave, freeSeat, waitForCall, resetDaily, hoursOf,
       get S() { return S; }, get L() { return L; },
     },
   });

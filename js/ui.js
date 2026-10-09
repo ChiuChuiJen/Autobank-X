@@ -128,6 +128,7 @@
     updateStats();
     updateDocs();
     updateIncidents();
+    updateRoster();
     UI.refreshStaff();
     if (S.logSeq !== lastLogSeq || force) { lastLogSeq = S.logSeq; renderLog(); }
     if (S.reports.length !== lastReports || force) { lastReports = S.reports.length; renderReports(); }
@@ -158,7 +159,7 @@
       ['完成服務', st.served, st.arrived ? `完成率 ${Math.round((st.served / st.arrived) * 100)}%` : '尚無來客', 'good'],
       ['平均等候', avg ? Math.round(avg / 60) + ' 分' : '—', st.waitMax ? `最長 ${Math.round(st.waitMax / 60)} 分` : '—', avg > 900 ? 'warn' : ''],
       ['放棄離開', lost, `ATM 交易 ${st.atm}`, lost > 10 ? 'bad' : ''],
-      ['在班員工', `${present}/${S.staff.length}`, `主管授權 ${st.approvals} 次`, ''],
+      ['在班員工', `${present}/${ABX.Roster.todaySummary().scheduled + ABX.Roster.todaySummary().temps}`, `請假 ${ABX.Roster.todaySummary().onLeave}・代班 ${(st.subs || 0)}`, ABX.Roster.todaySummary().vacant.length ? 'warn' : ''],
       ['待送文件', pendingDocs, `已送總行 ${st.docsDelivered}`, ''],
       ['臨時事件', ABX.Incidents.active().length, `今日 ${st.incidents} 件・排除 ${st.incResolved}`, ABX.Incidents.active().length ? 'bad' : ''],
       ['金庫庫存', (S.vaultCash / 10000).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' 萬', S.D.vaultOpen ? '金庫開啟中' : '金庫封閉', ''],
@@ -305,22 +306,63 @@
     else toast(`<b>已排除：${esc(inc.name)}</b><small>處理 ${Math.round((inc.resolvedAt - inc.startedAt) / 60)} 分鐘</small>`, 'ok');
   };
 
+  /* ---------- 排班表 ---------- */
+  let rosterKey = '';
+  function updateRoster() {
+    const R = ABX.Roster, sum = R.todaySummary(), w = R.weekView();
+    $('rosterBadge').textContent = sum.onLeave ? '假 ' + sum.onLeave : '';
+    $('rosterSummary').innerHTML = [
+      ['今日應到', sum.scheduled], ['在班', ABX.S.staff.filter((a) => a.state !== 'home').length], ['請假', sum.onLeave], ['排休', sum.off],
+      ['代班', sum.subs], ['調班', sum.callIns], ['支援', sum.temps],
+    ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('') +
+      (sum.vacant.length ? `<div class="vacant"><span>無人代班</span><b>${sum.vacant.map(esc).join('、')}</b></div>` : '');
+    const key = JSON.stringify([w.today, w.rows.map((r) => [r.name, r.cells.map((c) => c.k + c.text)])]);
+    if (key === rosterKey) return;
+    rosterKey = key;
+    const head = `<thead><tr><th>員工</th>${w.days.map((d) => `<th class="${d === w.today ? 'today' : ''}">Day ${d + 1}<small>星期${WD[d % 7]}</small></th>`).join('')}</tr></thead>`;
+    const body = w.rows.map((r) => `<tr><td class="nm">${esc(r.name)}<small>${r.role ? ROLES[r.role].label : '支援'}</small></td>` +
+      r.cells.map((c, i) => {
+        const d = w.days[i], editable = !r.temp && d >= w.today && c.k !== 'closed' && c.k !== 'off' && c.k !== 'none';
+        return `<td class="${d === w.today ? 'today' : ''}"><button class="rc ${c.k}${editable ? ' edit' : ''}" ${editable ? `data-name="${esc(r.name)}" data-day="${d + 1}"` : 'disabled'} title="${esc(c.note || '')}">${esc(c.text || '')}</button></td>`;
+      }).join('') + '</tr>').join('');
+    $('rosterTable').innerHTML = head + '<tbody>' + body + '</tbody>';
+  }
+  function openLeaveMenu(btn) {
+    const menu = $('leaveMenu'), name = btn.dataset.name, day = +btn.dataset.day;
+    const opts = [['', '', '上班（取消請假）']];
+    for (const t of ['特休', '病假', '事假', '公假']) opts.push([t, 'full', t + '（全天）']);
+    opts.push(['特休', 'am', '特休（上午）'], ['特休', 'pm', '特休（下午）'], ['事假', 'am', '事假（上午）'], ['事假', 'pm', '事假（下午）']);
+    menu.innerHTML = `<div class="lm-head">${esc(name)}・Day ${day}</div>` + opts.map(([t, p, l]) => `<button data-type="${t}" data-part="${p}">${l}</button>`).join('') + '<div class="lm-msg"></div>';
+    const pane = btn.closest('.tabpane'), r = btn.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    menu.style.left = Math.min(r.left - pr.left, pr.width - 190) + 'px';
+    menu.style.top = (r.bottom - pr.top + 4) + 'px';
+    menu.hidden = false;
+    menu.onclick = (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      const msg = ABX.Roster.setLeave(name, day, b.dataset.type || null, b.dataset.part || 'full');
+      if (msg) { menu.querySelector('.lm-msg').textContent = msg; return; }
+      menu.hidden = true; rosterKey = ''; updateUI();
+    };
+  }
+
   UI.refreshStaff = function () {
     const S = ABX.S;
     const q = $('staffSearch').value.trim(), role = $('staffRole').value, fl = $('staffFloor').value;
     const list = S.staff.filter((a) => {
       if (role && a.role !== role) return false;
       if (fl === 'off') { if (a.state !== 'home' && a.floor !== null) return false; }
+      else if (fl === 'leave') { if (!a.leave && !a.offDay) return false; }
       else if (fl && (String(a.floor) !== fl || a.state === 'home')) return false;
       if (q && !(a.name + a.label + ROLES[a.role].label + (a.trait || '')).includes(q)) return false;
       return true;
     });
     const rows = list.map((a) => {
-      const loc = a.state === 'home' ? (a.arrivedToday ? '已下班' : '未到班') : ABX.Sim.whereOf(a);
+      const loc = a.state === 'home' ? (a.offDay ? '排休' : a.leave && a.leave.part !== 'am' && (a.absent || a.arrivedToday) ? `請假（${a.leave.type}）` : a.arrivedToday ? '已下班' : '未到班') : ABX.Sim.whereOf(a);
       const lv = ABX.People.LEVELS[a.level];
+      const tag = a.temp ? `<span class="rtag temp">支援</span>` : a.acting ? `<span class="rtag sub" title="代 ${esc(a.acting)}">代班</span>` : a.callIn ? '<span class="rtag callin">調班</span>' : a.leave ? `<span class="rtag leave">${esc(a.leave.type)}</span>` : '';
       return `<tr data-id="${a.id}" class="${S.highlight === a.id ? 'hl' : ''}${a.state === 'home' ? ' away' : ''}">` +
         `<td><img class="avatar" src="${avatar(a)}" alt="">${esc(a.name)}</td>` +
-        `<td>${ROLES[a.role].label}${lv ? `<span class="lv lv-${a.level}">${lv.label}</span>` : ''}</td>` +
+        `<td>${ROLES[a.role].label}${lv ? `<span class="lv lv-${a.level}">${lv.label}</span>` : ''}${tag}</td>` +
         `<td class="muted">${esc(a.trait || '')}</td><td>${esc(loc)}</td>` +
         `<td>${esc(a.state === 'home' ? '—' : a.label)}${a.overtime && a.state !== 'home' ? ' <em class="ot">加班</em>' : ''}</td></tr>`;
     }).join('') || '<tr><td colspan="5" class="muted">沒有符合條件的員工</td></tr>';
@@ -343,15 +385,15 @@
   function renderReports() {
     const R = ABX.S.reports;
     const tb = $('reportTable').tBodies[0];
-    if (!R.length) { tb.innerHTML = '<tr><td colspan="17" class="muted">每日 24:00 結算後顯示</td></tr>'; return; }
-    tb.innerHTML = R.map((r) => `<tr class="${r.open ? '' : 'away'}"><td>Day ${r.day}（${WD[r.wd]}）${r.open ? '' : ' 休'}</td><td>${r.arrived}</td><td>${r.served}</td><td>${r.abandoned + r.turnedAway}</td><td>${r.waitN ? fmtDur(r.avgWait) : '—'}</td><td>${r.waitMax ? fmtDur(r.waitMax) : '—'}</td><td>${r.atm}</td><td>${r.docsCreated}</td><td>${r.docsDelivered}</td><td>${r.trips}</td><td>${r.cashTransport}</td><td>${r.approvals}</td><td>${r.incidents || 0}</td><td>${r.fraudStopped ? fmtMoney(r.fraudStopped) : '—'}</td><td>${r.overtime}</td><td>${r.lastLeave === null ? '—' : fmtHM(r.lastLeave % 86400)}</td><td>${fmtMoney(r.vault)}</td></tr>`).join('');
+    if (!R.length) { tb.innerHTML = '<tr><td colspan="18" class="muted">每日 24:00 結算後顯示</td></tr>'; return; }
+    tb.innerHTML = R.map((r) => `<tr class="${r.open ? '' : 'away'}"><td>Day ${r.day}（${WD[r.wd]}）${r.open ? '' : ' 休'}</td><td>${r.arrived}</td><td>${r.served}</td><td>${r.abandoned + r.turnedAway}</td><td>${r.waitN ? fmtDur(r.avgWait) : '—'}</td><td>${r.waitMax ? fmtDur(r.waitMax) : '—'}</td><td>${r.atm}</td><td>${r.docsCreated}</td><td>${r.docsDelivered}</td><td>${r.trips}</td><td>${r.cashTransport}</td><td>${r.approvals}</td><td>${r.incidents || 0}</td><td>${r.fraudStopped ? fmtMoney(r.fraudStopped) : '—'}</td><td>${r.leaves || 0}／${r.subs || 0}</td><td>${r.overtime}</td><td>${r.lastLeave === null ? '—' : fmtHM(r.lastLeave % 86400)}</td><td>${fmtMoney(r.vault)}</td></tr>`).join('');
   }
 
   function exportCsv() {
     const R = ABX.S.reports.slice().reverse();
     const codes = settings.services.map((s) => s.code);
-    const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '臨時事件', '阻詐金額', '客訴', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'].concat(codes.map((c) => '業務' + c));
-    const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.incidents || 0, r.fraudStopped || 0, r.complaints || 0, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)].concat(codes.map((c) => r.svc[c] || 0)));
+    const head = ['日期', '星期', '營業', '來客', '完成', '放棄', '停止取號未服務', '過號', '平均等候(分)', '最長等候(分)', 'ATM', '產生文件', '送達總行', '送件趟數', '運鈔', '主管授權', '帳差', '臨時事件', '阻詐金額', '客訴', '請假人次', '代班人次', '加班人次', '臨櫃存入', '臨櫃提領', '金庫庫存'].concat(codes.map((c) => '業務' + c));
+    const rows = R.map((r) => [r.day, WD[r.wd], r.open ? 'Y' : 'N', r.arrived, r.served, r.abandoned, r.turnedAway, r.noshow, (r.avgWait / 60).toFixed(1), (r.waitMax / 60).toFixed(1), r.atm, r.docsCreated, r.docsDelivered, r.trips, r.cashTransport, r.approvals, r.discrepancies, r.incidents || 0, r.fraudStopped || 0, r.complaints || 0, r.leaves || 0, r.subs || 0, r.overtime, r.cashIn, r.cashOut, Math.round(r.vault)].concat(codes.map((c) => r.svc[c] || 0)));
     const csv = '﻿' + [head].concat(rows).map((x) => x.join(',')).join('\n');
     ABX.showExport('每日營運報表（CSV）', csv, 'autobank-x-report.csv', 'text/csv');
   }
@@ -429,6 +471,11 @@
     };
     ABX.armConfirm($('btnReset'), '再按一次確認', () => { setRunning(false); start(); });
     bindTabs();
+    $('rosterTable').addEventListener('click', (e) => {
+      const b = e.target.closest('button.edit'); if (!b) return;
+      e.stopPropagation(); openLeaveMenu(b);
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('#leaveMenu')) $('leaveMenu').hidden = true; });
     buildDrill();
     $('btnDrill').onclick = () => {
       const msg = ABX.Incidents.trigger($('drillType').value);

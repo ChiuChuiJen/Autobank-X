@@ -92,14 +92,34 @@
     </table></div><p><button class="btn small" data-add="services">＋ 新增業務</button></p>`);
 
     html += section('員工名單', `有窗口的職務依序對應座位：${Object.entries(ABX.SERVICE_ROLES).map(([k, v]) => ROLES[k].label + '→' + v.where).join('、')}（數位、貴賓、保管箱座位有上限，超出者改為後勤支援）。「服務項目」填業務代碼，順序即叫號優先順序（目前代碼：${esc(svcCodes)}）。資歷影響服務與盤點速度（新進 ×1.2、資深 ×0.85）。員工名單變更需在模擬頁重置後生效。`, `<div class="scroll-x"><table class="tbl">
-      <thead><tr><th>#</th><th>姓名</th><th>職務</th><th>資歷</th><th>服務項目（有窗口的職務）</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>姓名</th><th>職務</th><th>資歷</th><th>上班日</th><th>服務項目（有窗口的職務）</th><th></th></tr></thead>
       <tbody>${cur.staff.map((s, i) => `<tr><td>${i + 1}</td>
         <td>${input(`staff.${i}.name`, 'text', 'class="w-m"')}</td>
         <td>${select(`staff.${i}.role`, roleOpts)}</td>
         <td>${select(`staff.${i}.level`, [['', '自動'], ['junior', '新進（較慢）'], ['regular', '一般'], ['senior', '資深（較快）']])}</td>
+        <td class="days">${'123456'.split('').map((d) => `<label><input type="checkbox" data-days="${i}" data-d="${d}" ${String(s.days === undefined ? '123456' : s.days).includes(d) ? 'checked' : ''}>${WD[d - 1]}</label>`).join('')}</td>
         <td>${ABX.SERVICE_ROLES[s.role] ? input(`staff.${i}.services`, 'text', 'class="w-m"') : '<span class="muted">—</span>'}</td>
         <td><button class="btn small ghost danger" data-del="staff" data-i="${i}">刪除</button></td></tr>`).join('')}</tbody>
     </table></div><p><button class="btn small" data-add="staff">＋ 新增員工</button></p>`);
+
+    const sch = cur.schedule || {};
+    const names = cur.staff.map((x) => [x.name, x.name]);
+    html += section('排班與請假', '週六輪值：同職務有兩人以上且週六可上班者，隔週輪流上班。請假者依序由週六輪休同事調班、跨職務同事代理、鄰近分行派員支援；都沒有人時該窗口當日暫停服務。模擬頁的「排班表」分頁也可以直接點格子請假。', `<div class="form-grid">
+      ${field('週六輪值', input('schedule.satRotation', 'check'), true)}
+      ${field('自動安排代班', input('schedule.substitute', 'check'), true)}
+      ${field('允許鄰近分行派員支援', input('schedule.dispatch', 'check'), true)}
+      ${field('每人每日臨時病假機率（%）', input('schedule.sickProb', 'number', 'min="0" max="100" step="0.5"'))}
+    </div>
+    <h4>預排假單</h4>
+    <div class="scroll-x"><table class="tbl">
+      <thead><tr><th>員工</th><th>日期（Day N）</th><th>假別</th><th>時段</th><th></th></tr></thead>
+      <tbody>${(sch.leaves || []).map((l, j) => `<tr>
+        <td>${select(`schedule.leaves.${j}.name`, names)}</td>
+        <td>${input(`schedule.leaves.${j}.day`, 'number', 'class="w-s" min="1"')}<span class="muted"> 星期${WD[((+l.day || 1) - 1) % 7]}</span></td>
+        <td>${select(`schedule.leaves.${j}.type`, ['特休', '病假', '事假', '公假', '喪假', '婚假'].map((t) => [t, t]))}</td>
+        <td>${select(`schedule.leaves.${j}.part`, [['full', '全天'], ['am', '上午'], ['pm', '下午']])}</td>
+        <td><button class="btn small ghost danger" data-del="leaves" data-i="${j}">刪除</button></td></tr>`).join('') || '<tr><td colspan="5" class="muted">尚無預排假單</td></tr>'}</tbody>
+    </table></div><p><button class="btn small" data-add="leaves">＋ 新增假單</button></p>`);
 
     html += section('客戶來客', '每小時臨櫃來客數（僅在營業收件時段內產生）。等候超過耐心時間的客戶會放棄離開。', `<div class="form-grid">
       ${field('來客倍率', input('customers.multiplier', 'number', 'min="0"'))}
@@ -147,6 +167,7 @@
   function collect() {
     const s = clone(cur);
     s.services = []; s.staff = [];
+    s.schedule = Object.assign({}, s.schedule, { leaves: [] });
     document.querySelectorAll('[data-path]').forEach((el) => {
       let v;
       if (el.dataset.type === 'bool') v = el.checked;
@@ -156,6 +177,10 @@
     });
     s.services.forEach((x) => { x.code = String(x.code || '').toUpperCase().trim(); });
     s.staff.forEach((x) => { if (x.services !== undefined) x.services = String(x.services).toUpperCase().replace(/[^A-Z]/g, ''); });
+    s.staff.forEach((x, i) => {
+      const boxes = document.querySelectorAll(`[data-days="${i}"]`);
+      if (boxes.length) x.days = [...boxes].filter((b) => b.checked).map((b) => b.dataset.d).join('');
+    });
     return s;
   }
 
@@ -183,6 +208,13 @@
       if (raw && !parseTimes(raw).length) w.push(`時間格式錯誤：${raw}（範例 10:30, 14:00）`);
     }
     if (s.staff.length > 40) w.push('員工人數建議不超過 40 人');
+    const staffNames = s.staff.map((x) => x.name);
+    if (new Set(staffNames).size !== staffNames.length) w.push('員工姓名不可重複（假單依姓名對應）');
+    (s.schedule.leaves || []).forEach((l, j) => {
+      if (!staffNames.includes(l.name)) w.push(`第 ${j + 1} 筆假單的員工「${l.name}」不在名單中`);
+      if (!(+l.day >= 1)) w.push(`第 ${j + 1} 筆假單的日期需為 1 以上`);
+    });
+    s.staff.forEach((x, i) => { if (x.days === '') w.push(`第 ${i + 1} 位員工（${x.name}）沒有任何上班日`); });
     $('warnings').innerHTML = w.map((x) => `<li>${esc(x)}</li>`).join('');
     return w;
   }
@@ -203,12 +235,15 @@
         const used = cur.services.map((x) => x.code);
         const code = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').find((c) => !used.includes(c)) || 'Z';
         cur.services.push({ code, name: '新業務', floor: 1, avgMin: 10, ratio: 5, docProb: 20, docName: '申請書', approvalProb: 0, mgrProb: 0, color: '#14b8a6' });
-      } else cur.staff.push({ name: '新員工', role: 'teller', services: 'A' });
+      } else if (add.dataset.add === 'leaves') {
+        cur.schedule.leaves = cur.schedule.leaves || [];
+        cur.schedule.leaves.push({ name: cur.staff[0] ? cur.staff[0].name : '', day: 2, type: '特休', part: 'full' });
+      } else cur.staff.push({ name: '新員工', role: 'teller', services: 'A', days: '123456' });
       render();
     }
     if (del) {
       cur = collect();
-      cur[del.dataset.del].splice(+del.dataset.i, 1);
+      (del.dataset.del === 'leaves' ? cur.schedule.leaves : cur[del.dataset.del]).splice(+del.dataset.i, 1);
       render();
     }
   });
