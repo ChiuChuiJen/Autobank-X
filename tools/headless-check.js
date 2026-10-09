@@ -6,7 +6,7 @@ const ctx = { window: {}, console, Math, JSON, Date };
 ctx.window = ctx;
 ctx.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 vm.createContext(ctx);
-for (const f of ['settings.js', 'layout.js', 'sim.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
+for (const f of ['settings.js', 'layout.js', 'people.js', 'sim.js', 'incidents.js', 'roster.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
 const ABX = ctx.ABX;
 const days = +(process.argv[2] || 7);
 const s = ABX.loadSettings();
@@ -29,3 +29,8 @@ console.log('仍在班員工:', S.staff.filter((a) => a.state !== 'home').map((a
 console.log('金庫現金:', ABX.fmtMoney(S.vaultCash));
 const errs = S.log.filter((l) => /系統）/.test(l.msg));
 console.log('系統備援事件:', errs.map((l) => ABX.fmtHM(l.t % 86400) + ' ' + l.msg));
+const incs = S.incidents;
+console.log(`臨時事件 ${incs.length} 件，未排除 ${incs.filter((i) => i.status === 'active').length} 件`);
+for (const i of incs.slice(0, 12)) console.log(` D${Math.floor(i.startedAt / 86400) + 1} ${ABX.fmtHM(i.startedAt % 86400)} ${i.name} → ${i.status === 'resolved' ? '排除 ' + Math.round((i.resolvedAt - i.startedAt) / 60) + ' 分' : '處理中：' + (i.steps[i.cur] || {}).label}`);
+console.log('排班紀錄：');
+for (const l of S.log.filter((x) => x.cat === '排班').reverse().slice(0, 30)) console.log(` D${Math.floor(l.t / 86400) + 1} ${ABX.fmtHM(l.t % 86400)} ${l.msg}`);
