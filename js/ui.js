@@ -19,18 +19,18 @@
   let speed = +settings.sim.defaultSpeed || 1;
   let floorView = 'all';
   let pendingSettings = null;
-  const UI = (ABX.UI = { showLabels: settings.sim.showLabels !== false, sound: !!settings.sim.sound, voice: !!settings.sim.voice });
+  const UI = (ABX.UI = { showLabels: settings.sim.showLabels !== false, sound: !!settings.sim.sound, voice: !!settings.sim.voice, view: '25' });
 
   function loadPrefs() {
     try {
       const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
       if (p.speed) speed = p.speed;
       if (p.floorView) floorView = p.floorView;
-      for (const k of ['showLabels', 'sound', 'voice']) if (k in p) UI[k] = p[k];
+      for (const k of ['showLabels', 'sound', 'voice', 'view']) if (k in p) UI[k] = p[k];
     } catch (e) { /* ignore */ }
   }
   function savePrefs() {
-    try { localStorage.setItem(PREF_KEY, JSON.stringify({ speed, floorView, showLabels: UI.showLabels, sound: UI.sound, voice: UI.voice })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ speed, floorView, showLabels: UI.showLabels, sound: UI.sound, voice: UI.voice, view: UI.view })); } catch (e) { /* ignore */ }
   }
 
   /* ---------- 初始化 ---------- */
@@ -494,6 +494,10 @@
       UI.refreshStaff();
     };
     const opt = (id, key) => { const el = $(id); el.checked = !!UI[key]; el.onchange = () => { UI[key] = el.checked; savePrefs(); }; };
+    const vs = $('viewSeg');
+    const paintView = () => vs.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b.dataset.v === UI.view); b.setAttribute('aria-checked', b.dataset.v === UI.view); });
+    paintView();
+    vs.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; UI.view = b.dataset.v; savePrefs(); paintView(); };
     opt('optLabels', 'showLabels'); opt('optSound', 'sound'); opt('optVoice', 'voice');
 
     // 後台設定變更偵測（storage 事件；file:// 下改於回到頁面時比對）

@@ -399,3 +399,9 @@ button.rc.edit:hover { outline: 2px solid var(--brand); }
 .tbl td.days label { display: inline-flex; align-items: center; gap: 1px; font-size: 11px; margin-right: 4px; color: var(--muted); }
 .tbl td.days input { margin: 0; }
 .admin-wrap h4 { margin: 14px 0 6px; font-size: 13px; }
+
+/* 顯示方式切換（淺色版分段按鈕） */
+.seg.light { background: #f1f4f8; border-color: var(--line); }
+.seg.light button { color: var(--muted); font-family: var(--font); font-size: 12px; font-weight: 700; padding: 4px 10px; }
+.seg.light button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(15, 28, 46, .12); }
+.opts { align-items: center; }

@@ -213,6 +213,121 @@
     ctx.restore();
   }
 
+  /* ---------- 2.5D 站立人物（腳底位於 sx, sy） ---------- */
+  function rrect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  }
+  function drawStanding(ctx, sx, sy, look, o = {}) {
+    const s = o.scale || 1;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.scale(o.flip ? -s : s, s);
+    ell(ctx, 0, 0, 8, 3, 'rgba(15,23,42,.22)');
+    if (o.sick) {   // 倒地
+      ctx.fillStyle = look.outfit; rrect(ctx, -12, -6, 17, 6, 3); ctx.fill();
+      ctx.fillStyle = '#1f2937'; ctx.fillRect(-18, -5, 7, 4);
+      ell(ctx, 9, -4, 4.4, 4.2, look.skin); ell(ctx, 10.5, -5.5, 4, 2.6, look.hair);
+      ctx.restore(); return;
+    }
+    const front = o.facing !== 'back';
+    const sw = o.moving ? Math.sin(o.walk || 0) : 0;
+    const pants = look.acc === 'apron' ? '#57534e' : shade(look.outfit, 0.45);
+    const dark = shade(look.outfit, 0.7);
+    // 背後的配件
+    if (look.acc === 'stroller') {
+      ctx.fillStyle = '#475569'; ctx.fillRect(9, -9, 11, 6);
+      ctx.fillStyle = '#f472b6'; ctx.beginPath(); ctx.arc(14.5, -9, 5.5, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.arc(10.5, -2, 1.8, 0, 7); ctx.arc(18.5, -2, 1.8, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(9, -9); ctx.lineTo(5, -13); ctx.stroke();
+    }
+    if (look.acc === 'backpack' && !front) { ctx.fillStyle = shade(look.outfit, 0.6); rrect(ctx, -5, -19, 10, 10, 2); ctx.fill(); }
+    // 腿
+    ctx.fillStyle = pants;
+    ctx.fillRect(-4, -9 - Math.max(0, sw) * 1.5, 3.2, 9 - Math.max(0, sw) * 1.5 + 0.5);
+    ctx.fillRect(0.8, -9 - Math.max(0, -sw) * 1.5, 3.2, 9 - Math.max(0, -sw) * 1.5 + 0.5);
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(-4.3 + sw * 0.6, -1.4, 3.8, 1.6); ctx.fillRect(0.5 - sw * 0.6, -1.4, 3.8, 1.6);
+    // 手臂（身後那隻先畫）
+    ctx.fillStyle = dark;
+    rrect(ctx, 5.2, -18.5 - sw * 1.2, 2.8, 9, 1.4); ctx.fill();
+    // 身體
+    ctx.fillStyle = look.outfit; rrect(ctx, -6, -20, 12, 12, 3.5); ctx.fill();
+    ctx.strokeStyle = shade(look.outfit, 0.55); ctx.lineWidth = 0.7; ctx.stroke();
+    if (front) {
+      switch (look.acc) {
+        case 'tie':
+          ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.moveTo(-2.4, -20); ctx.lineTo(0, -15.5); ctx.lineTo(2.4, -20); ctx.fill();
+          ctx.fillStyle = look.trim; ctx.beginPath(); ctx.moveTo(-0.9, -19.5); ctx.lineTo(0.9, -19.5); ctx.lineTo(1.1, -12.5); ctx.lineTo(0, -11.5); ctx.lineTo(-1.1, -12.5); ctx.fill();
+          break;
+        case 'scarf':
+          ctx.fillStyle = look.trim; rrect(ctx, -4.5, -20.5, 9, 2.6, 1.2); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(1, -18.5); ctx.lineTo(3.6, -14.5); ctx.lineTo(1.4, -14.2); ctx.fill();
+          break;
+        case 'sash':
+          ctx.strokeStyle = look.trim; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-5, -19); ctx.lineTo(5, -9.5); ctx.stroke();
+          break;
+        case 'badge':
+          ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.moveTo(-2.2, -20); ctx.lineTo(0, -16.5); ctx.lineTo(2.2, -20); ctx.fill();
+          ell(ctx, -3.3, -15.5, 1.3, 1.3, '#facc15');
+          break;
+        case 'lanyard':
+          ctx.strokeStyle = look.trim; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-2.5, -20); ctx.lineTo(0, -14.5); ctx.lineTo(2.5, -20); ctx.stroke();
+          ctx.fillStyle = '#f8fafc'; ctx.fillRect(-1.3, -14.5, 2.6, 3.2);
+          break;
+        case 'apron':
+          ctx.fillStyle = look.trim; ctx.fillRect(-4.5, -16, 9, 9);
+          break;
+        case 'helmet':
+          ctx.fillStyle = '#facc15'; ctx.fillRect(-6, -14.5, 12, 1.8);
+          break;
+        case 'backpack':
+          ctx.strokeStyle = shade(look.outfit, 0.5); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-3.5, -20); ctx.lineTo(-3.5, -12); ctx.moveTo(3.5, -20); ctx.lineTo(3.5, -12); ctx.stroke();
+          break;
+      }
+    }
+    if (look.acc === 'bag') {
+      ctx.strokeStyle = look.trim; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-5, -19.5); ctx.lineTo(5.5, -10); ctx.stroke();
+      ctx.fillStyle = look.trim; rrect(ctx, 4, -11, 6, 5, 1); ctx.fill();
+    }
+    // 前方手臂與手上物品
+    ctx.fillStyle = dark;
+    rrect(ctx, -8, -18.5 + sw * 1.2, 2.8, 9, 1.4); ctx.fill();
+    ell(ctx, -6.6, -9 + sw * 1.2, 1.5, 1.5, look.skin);
+    const handY = -9 - sw * 1.2;
+    if (look.acc === 'briefcase') { ctx.fillStyle = '#5b3a1e'; rrect(ctx, 5, handY - 1, 7, 5, 1); ctx.fill(); }
+    if (look.acc === 'cashbag') { ctx.fillStyle = '#facc15'; rrect(ctx, 5, handY - 1, 5, 4.5, 1); ctx.fill(); }
+    if (look.acc === 'tablet') { ctx.fillStyle = '#0f172a'; ctx.fillRect(4.5, handY - 6, 5, 7); ctx.fillStyle = '#5eead4'; ctx.fillRect(5.2, handY - 5.3, 3.6, 5.6); }
+    if (look.acc === 'keys') { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(7.5, handY + 1, 1.8, 0, 7); ctx.stroke(); }
+    if (look.acc === 'cane') { ctx.strokeStyle = '#78350f'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(7.5, handY); ctx.lineTo(10, 0); ctx.stroke(); }
+    if (o.carry) { ctx.fillStyle = '#f8fafc'; ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 0.6; ctx.fillRect(5, handY - 3, 6, 4.5); ctx.strokeRect(5, handY - 3, 6, 4.5); }
+    if (o.cashbox) { ctx.fillStyle = '#64748b'; ctx.fillRect(5, handY - 3, 8, 6.5); ctx.fillStyle = '#facc15'; ctx.fillRect(8, handY - 0.5, 2, 2); }
+    ell(ctx, 6.8, handY, 1.5, 1.5, look.skin);
+    // 頭
+    const hy = -25.5;
+    const hs = look.hairStyle || 0;
+    if (hs === 1 && !(look.acc === 'cap' || look.acc === 'helmet')) { ctx.fillStyle = look.hair; rrect(ctx, -5.6, hy - 2, 11.2, 10, 4); ctx.fill(); }
+    ell(ctx, 0, hy, 5, 5.2, look.skin);
+    if (look.acc === 'cap' || look.acc === 'helmet') {
+      const cc = look.acc === 'cap' ? '#1e293b' : '#e5e7eb';
+      ctx.fillStyle = cc; ctx.beginPath(); ctx.arc(0, hy - 0.8, 5.4, Math.PI, 0); ctx.fill();
+      ctx.fillRect(-5.4, hy - 1.2, 10.8, 1.6);
+      if (front) { ctx.fillStyle = look.acc === 'cap' ? '#0f172a' : '#9ca3af'; ctx.beginPath(); ctx.ellipse(0, hy + 0.6, 6, 1.6, 0, 0, Math.PI); ctx.fill(); ell(ctx, 0, hy - 3.2, 1.2, 1.2, look.acc === 'cap' ? '#facc15' : '#16a34a'); }
+    } else if (front) {
+      ctx.fillStyle = look.hair; ctx.beginPath(); ctx.arc(0, hy - 0.5, 5.3, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
+      if (hs !== 3) { ctx.beginPath(); ctx.ellipse(-1.5, hy - 2.8, 4, 1.8, -0.25, 0, 7); ctx.fill(); }
+      if (hs === 2) ell(ctx, 0, hy - 6, 2.2, 2, look.hair);
+    } else {
+      ell(ctx, 0, hy - 0.4, 5.3, 5.3, look.hair);
+      if (hs === 2) ell(ctx, 0, hy - 3, 2.4, 2.2, shade(look.hair, 0.8));
+    }
+    if (front) {
+      ctx.fillStyle = '#1f2937';
+      ctx.fillRect(-2.6, hy + 0.2, 1.3, 1.5); ctx.fillRect(1.3, hy + 0.2, 1.3, 1.5);
+    }
+    ctx.restore();
+  }
+
   /* 圖例用小圖 */
   function icon(look, size = 28) {
     try {
@@ -226,5 +341,5 @@
     } catch (e) { return ''; }
   }
 
-  ABX.People = { UNIFORM, LEVELS, PERSONAS, staffLook, customerLook, autoLevel, trait, pickPersona, draw, icon, hash };
+  ABX.People = { UNIFORM, LEVELS, PERSONAS, staffLook, customerLook, autoLevel, trait, pickPersona, draw, drawStanding, icon, hash };
 })();

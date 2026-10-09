@@ -18,8 +18,11 @@
   }
   function detachAll() { views.length = 0; }
 
+  const is25 = () => !!(ABX.Render25 && ABX.UI && ABX.UI.view === '25');
+  const dims = () => (is25() ? { W: ABX.Render25.W, H: ABX.Render25.H } : { W: ABX.L.W, H: ABX.L.H });
+
   function resize(v) {
-    const L = ABX.L, dpr = window.devicePixelRatio || 1;
+    const L = dims(), dpr = window.devicePixelRatio || 1;
     const w = v.canvas.clientWidth || 600;
     const h = Math.round((w * L.H) / L.W);
     if (v.canvas.width !== Math.round(w * dpr) || v.canvas.height !== Math.round(h * dpr)) {
@@ -515,12 +518,14 @@
     for (const v of views) {
       if (!v.canvas.offsetParent) continue;
       resize(v);
-      const key = v.canvas.width + 'x' + v.canvas.height + ':' + (ABX.L.id || (ABX.L.id = Math.random()));
-      if (v.cacheKey !== key) { buildStatic(v); v.cacheKey = key; }
+      const m25 = is25();
+      const key = v.canvas.width + 'x' + v.canvas.height + ':' + (ABX.L.id || (ABX.L.id = Math.random())) + (m25 ? ':25' : ':2d');
+      if (v.cacheKey !== key) { (m25 ? ABX.Render25.buildStatic : buildStatic)(v); v.cacheKey = key; }
       const ctx = v.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(v.cache, 0, 0);
       ctx.setTransform(v.scale, 0, 0, v.scale, 0, 0);
+      if (m25) { ABX.Render25.drawFrame(ctx, v.floor); continue; }
       drawDynamic(ctx, v.floor);
       drawIncidents(ctx, v.floor);
       drawAgents(ctx, v.floor);
@@ -531,14 +536,16 @@
 
   function pos(v, e) {
     const r = v.canvas.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * ABX.L.W, y: ((e.clientY - r.top) / r.height) * ABX.L.H };
+    const L = dims();
+    return { x: ((e.clientX - r.left) / r.width) * L.W, y: ((e.clientY - r.top) / r.height) * L.H };
   }
   function hit(v, e) {
-    const p = pos(v, e);
+    const p = pos(v, e), m25 = is25();
     let best = null, bd = 14;
     for (const a of ABX.S.agents) {
       if (a.floor !== v.floor || a.transfer || a.dead) continue;
-      const d = Math.hypot(a.x - p.x, a.y - p.y);
+      if (m25 && (!a._p25 || a._p25.floor !== v.floor)) continue;
+      const d = m25 ? Math.hypot(a._p25.x - p.x, a._p25.y - 14 - p.y) : Math.hypot(a.x - p.x, a.y - p.y);
       if (d < bd) { bd = d; best = a; }
     }
     return best;
@@ -581,5 +588,6 @@
     tip(html, e);
   }
 
+  ABX.RenderUtil = { FONT, text, rr, sign, bubble };
   ABX.Render = { attach, detachAll, draw };
 })();

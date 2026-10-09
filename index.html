@@ -58,6 +58,9 @@
         <div class="floors-head">
           <div id="floorTabs" class="tabs" role="tablist"></div>
           <div class="opts">
+            <div class="seg light" id="viewSeg" role="radiogroup" aria-label="顯示方式">
+              <button role="radio" data-v="25">2.5D 立體</button><button role="radio" data-v="2d">2D 平面</button>
+            </div>
             <label><input type="checkbox" id="optLabels"> 員工狀態</label>
             <label><input type="checkbox" id="optSound"> 叫號音效</label>
             <label><input type="checkbox" id="optVoice"> 語音叫號</label>
@@ -169,6 +172,7 @@
   <script src="js/incidents.js"></script>
   <script src="js/roster.js"></script>
   <script src="js/render.js"></script>
+  <script src="js/render25.js"></script>
   <script src="js/ui.js"></script>
 </body>
 </html>
